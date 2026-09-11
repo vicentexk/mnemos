@@ -129,7 +129,7 @@ export class World2D {
         const wy = vy + oy * T;
         const tx = wx / T, ty = wy / T;
         if (!this.isLandTile(Math.round(tx), Math.round(ty), 3)) continue;
-        this.bld('b/house', wx, wy, 44, 34, 'casa');
+        this.bld('b/house2', wx, wy, 44, 34, 'casa');
         casas++;
       }
     }
@@ -351,20 +351,24 @@ export class World2D {
       const p = this.randLandNear(tx, ty, 12);
       if (p) this.npc(p.x, p.y, face, nome, [linha]);
     }
-    // fauna
+    // fauna nova (sprites do usuario): bandos de bode, cavalos, patos e jumentos
     for (const [fx, fy] of [[190, 250], [162, 228], [252, 92]]) {
       for (let k = 0; k < 4; k++) {
         const p = this.randLandNear(fx + Math.round(this.rng() * 8 - 4), fy + Math.round(this.rng() * 6 - 3), 4);
-        if (p) this.animals.push({ x: p.x * T, y: p.y * T, kind: 'flock' });
+        if (p) this.animals.push({ x: p.x * T, y: p.y * T, kind: 'goat' });
       }
     }
     for (const [dx, dy] of [[288, 152], [294, 160], [286, 164]]) {
       const p = this.randLandNear(dx, dy, 6);
-      if (p) this.animals.push({ x: p.x * T, y: p.y * T, kind: 'deer' });
+      if (p) this.animals.push({ x: p.x * T, y: p.y * T, kind: 'horse' });
     }
     for (const [dx, dy] of [[180, 40], [90, 160], [292, 120], [150, 90], [250, 40], [64, 40]]) {
       const p = this.randLandNear(dx, dy, 8);
-      if (p) this.animals.push({ x: p.x * T, y: p.y * T, kind: 'bird' });
+      if (p) this.animals.push({ x: p.x * T, y: p.y * T, kind: 'duck' });
+    }
+    for (const [jx, jy] of [[168, 262], [196, 262], [185, 268]]) {
+      const p = this.randLandNear(jx, jy, 6);
+      if (p) this.animals.push({ x: p.x * T, y: p.y * T, kind: 'donkey' });
     }
   }
 
@@ -387,7 +391,7 @@ export class World2D {
         let busy = false;
         for (const b of this.buildings) if (Math.abs(b.x - wx) < 60 && Math.abs(b.y - wy) < 50) { busy = true; break; }
         if (busy) continue;
-        this.bld('b/house', wx, wy, 44, 34, 'casa');
+        this.bld('b/house2', wx, wy, 44, 34, 'casa');
         placed++;
         break;
       }
@@ -446,7 +450,7 @@ export class World2D {
     const uz = ZONES.find(z => z.id === 'umbigo')!;
     const pd = this.randLandNear(uz.cx + 8, uz.cy + 6, 10);
     if (pd) {
-      this.bld('b/porta', pd.x * T - 17, pd.y * T - 46, 34, 46, 'porta');
+      this.bld('b/porta2', pd.x * T - 36, pd.y * T - 58, 72, 58, 'porta');
       // guardiões visuais (os monstros da zona já cuidam do resto)
       for (const [ox, oy] of [[-22, 2], [22, 2]]) {
         this.props.push({ key: 'b/skull', x: pd.x * T + ox, y: pd.y * T + oy, solid: 1, chunk: this.chunkOf(pd.x * T + ox, pd.y * T + oy), flip: ox > 0 });
@@ -467,10 +471,10 @@ export class World2D {
     };
     for (const d of DUNGEONS) {
       const [ax, ay] = anchors[d.id];
-      const p = this.randLandNear(ax, ay, 8);
+      const p = this.randLandNear(ax, ay, 8) || this.randLandNear(ax, ay, 18);
       if (!p) continue;
       const ex = p.x * T, ey = p.y * T;
-      this.props.push({ key: 'd/hole', x: ex, y: ey, solid: 0, chunk: this.chunkOf(ex, ey), flip: false });
+      this.props.push({ key: 'd/hole2', x: ex, y: ey, solid: 0, chunk: this.chunkOf(ex, ey), flip: false });
       this.dens.push({ id: d.id, x: ex, y: ey });
       this.stampDungeon(d.id);
     }
@@ -523,7 +527,7 @@ export class World2D {
     }
     // baú no fundo
     const bx = (r.x + W - 5) * T, by = (r.y + H - 5) * T;
-    this.bld('b/chest', bx - 12, by - 14, 24, 14, 'dbau', { den: id, open: false, lvl: d.loot });
+    this.bld('b/chest2', bx - 12, by - 14, 24, 14, 'dbau', { den: id, open: false, lvl: d.loot });
     this.denRects[id] = { ox: r.x, oy: r.y, W, H };
   }
 
@@ -585,6 +589,27 @@ export class World2D {
         this.props.push(p);
         // sombra de colisão no tronco
         this.coll[tx + ty * NW] = COLL.BLOCK;
+      }
+    }
+    // decuais de chão (tufos, flores, manchas) — matam o xadrez do terreno
+    const flora: string[] = ['g/tuft1', 'g/tuft2', 'g/flower1', 'g/tuft1', 'g/flower1'];
+    const manchas: string[] = ['g/patch2', 'g/patch3', 'g/patch2'];
+    for (let ty = 4; ty < NH - 4; ty += 2) {
+      for (let tx = 4; tx < NW - 4; tx += 2) {
+        const i = tx + ty * NW;
+        if (!this.land[i] || this.coll[i]) continue;
+        const z = ZONES[this.biome[i]];
+        const seco = z.biome === 'deserto' || z.biome === 'picos' || z.biome === 'obsidiana' || z.biome === 'umbigo';
+        const roll = this.rng();
+        if (roll <= 0.055 && !seco) {
+          const key = flora[Math.floor(this.rng() * flora.length)];
+          const px = tx * T + Math.floor(this.rng() * 12), py = ty * T + Math.floor(this.rng() * 12);
+          this.props.push({ key, x: px, y: py, solid: 0, chunk: this.chunkOf(px, py), flip: this.rng() > 0.5 });
+        } else if (roll > 0.965) {
+          const key = manchas[Math.floor(this.rng() * manchas.length)];
+          const px = tx * T + Math.floor(this.rng() * 12), py = ty * T + Math.floor(this.rng() * 12);
+          this.props.push({ key, x: px, y: py, solid: 0, chunk: this.chunkOf(px, py), flip: this.rng() > 0.5 });
+        }
       }
     }
     // indexa por chunk

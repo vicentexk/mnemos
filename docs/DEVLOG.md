@@ -136,3 +136,11 @@ Feedback do playtest 1: chão bugado, sprites feios (anatomia), HUD não-pixel, 
 - **BUG 2 (sprites invisíveis)**: rollback do workspace apagou public/img/externa.* → mundo sem árvores. Recuperação via git (reset --hard origin/main) + **fallbacks permanentes em buildAllSprites** (chaves novas caem nos procedurais se a folha não carregar; nada fica invisível nunca mais).
 - **EXE**: electron.exe renomeado → **MNEMOS.exe** na raiz do zip + LEIA-ME.txt (instruções + SmartScreen). release/MNEMOS-Alpha-0.4.1-win64.zip.
 - Rollback do ambiente documentado: .git volta no tempo, origin/chmod/key perms precisam re-fix a cada sessão.
+
+## Sessão 10 — Arte v2: LANCZOS + decuais de chão + Alpha 0.5
+- **Reclamação do user**: sprites "iguais" (rollback apagou o atlas de novo) e artes trituradas (NEAREST de ~300px→14px destruía o desenho).
+- **Pipeline v2**: recorte com feather + **LANCZOS** (preserva a arte), sprites MAIORES (árvores 52–62px, golem 34px), atlas 768×480 com **37 sprites**, salvo em `tools/picks2.py` + `tools/picks2b.py` (sobrevive a reset).
+- **CHÃO NOVO**: ~1.9k decuais (tufos/flores/manchas da folha 9) espalhados — mata o xadrez do terreno; flora pula biomas secos.
+- **Integrado**: casa amarela da vila (21×), portal dourado 72×58, buraco/baú de porão novos, fauna viva (bodes/cavalos/patos/jumentos com 2 frames), goblin/golem/flamejante/ouriceiro nos porões.
+- Fix: Gruta da Maré sem entrada (âncora no oceano) → fallback de raio 18.
+- tsc limpo; build 141.15 kB (50.37 gz); release/MNEMOS-Alpha-0.5-win64.zip.

@@ -595,7 +595,7 @@ export function buildAllSprites(races: RaceLike[]) {
     't/green': 't/baobao', 't/apple': 't/baobao', 't/deadbig': 't/dead', 't/mushP': 't/mush',
     't/tent': 't/petro', 't/root': 't/petro', 't/skulltotem': 't/dead',
     'r/ruin1': 't/dead', 'r/ruin2': 't/dead',
-    'b/porta2': 'b/porta', 'd/hole2': 'd/hole', 'b/chest2': 'b/chest',
+    'b/porta2': 'b/porta', 'd/hole2': 'd/hole', 'b/chest2': 'b/chest', 'b/house2': 'b/house',
     'e/goblin0': 'e/s0', 'e/goblin1': 'e/s1', 'e/golem0': 'e/T0', 'e/golem1': 'e/T1',
     'e/fogo0': 'e/g0', 'e/fogo1': 'e/g1', 'e/espinho0': 'e/f0', 'e/espinho1': 'e/f1'
   };
