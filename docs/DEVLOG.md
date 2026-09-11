@@ -130,3 +130,9 @@ Feedback do playtest 1: chão bugado, sprites feios (anatomia), HUD não-pixel, 
 - **FIX: armas gigantes** — drawWeaponAt desenhava ½ do sprite 48px (24px visíveis); agora desenha ⅓ (16px, ~2.5× o personagem). Arma de mão, não torre.
 - **Pendências mapeadas** (próximos lotes): tiles de chão por bioma (imgs 1–12), casas/vila (13–17), mobs completos c/ animações (29–39), retratos novos (40), UI/livro/bestiário (41–47).
 - tsc limpo; build 139.25 kB (49.77 gz); server 200; **release/MNEMOS-Alpha-0.4-win64.zip** (substitui a 0.3).
+
+## Sessão 9 — Hotfix 0.4.1: crash de porões + rollback do sandbox
+- **BUG 1 (crash)**: mobs novos de porão (goblin/flamejante/ouriceiro/golem) tinham sprite mas não stats → TypeError ao entrar no porão. Fix: entradas próprias em KINDS + mapeamento BASE_KIND (goblin→farejador, flamejante→gundu, ouriceiro→batedor, golem→bruto) com `e.base` na IA.
+- **BUG 2 (sprites invisíveis)**: rollback do workspace apagou public/img/externa.* → mundo sem árvores. Recuperação via git (reset --hard origin/main) + **fallbacks permanentes em buildAllSprites** (chaves novas caem nos procedurais se a folha não carregar; nada fica invisível nunca mais).
+- **EXE**: electron.exe renomeado → **MNEMOS.exe** na raiz do zip + LEIA-ME.txt (instruções + SmartScreen). release/MNEMOS-Alpha-0.4.1-win64.zip.
+- Rollback do ambiente documentado: .git volta no tempo, origin/chmod/key perms precisam re-fix a cada sessão.

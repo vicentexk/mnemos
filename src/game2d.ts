@@ -69,6 +69,7 @@ interface Enemy2D {
   mad: boolean; buff: number; shootCd: number; chargeCd: number;
   chargeT: number; chargeDx: number; chargeDy: number; tired: number; howlCd: number;
   den: string;
+  base: string;
 }
 
 interface Proj2D {
@@ -94,8 +95,14 @@ const KINDS: Record<string, { nome: string; hp: number; dmg: number; speed: numb
   T: { nome: 'Bruto',     hp: 170, dmg: 20, speed: 20 },
   g: { nome: 'Gundu',     hp: 110, dmg: 16, speed: 26 },
   m: { nome: 'Miroo',     hp: 90,  dmg: 6,  speed: 26 },
-  h: { nome: 'Uivo',      hp: 100, dmg: 12, speed: 32 }
+  h: { nome: 'Uivo',      hp: 100, dmg: 12, speed: 32 },
+  // mobs de porão (sprites do usuário) — comportamento via BASE_KIND
+  goblin:   { nome: 'Goblin',     hp: 75,  dmg: 10, speed: 34 },
+  fogo:     { nome: 'Flamejante', hp: 95,  dmg: 14, speed: 30 },
+  espinho:  { nome: 'Ouriceiro',  hp: 85,  dmg: 12, speed: 24 },
+  golem:    { nome: 'Golem',      hp: 190, dmg: 22, speed: 18 }
 };
+const BASE_KIND: Record<string, string> = { goblin: 's', fogo: 'g', espinho: 'f', golem: 'T' };
 function compDe(lvl: number): string[] {
   if (lvl <= 1) return ['s', 's', 'f'];
   if (lvl <= 2) return ['s', 'f', 'a'];
@@ -244,8 +251,10 @@ class Game2D {
     xe.onload = () => {
       const eim = new Image();
       eim.onload = () => buildExternalSheet(eim);
+      eim.onerror = () => console.warn('[mnemos] externa.png falhou — usando fallback procedural');
       eim.src = 'img/externa.png';
     };
+    xe.onerror = () => console.warn('[mnemos] externa.manifest.js falhou — usando fallback procedural');
     document.head.appendChild(xe);
 
     // barco: primeira água navegável perto do pier
@@ -482,10 +491,11 @@ class Game2D {
   }
 
   private addEnemy(kind: string, lvl: number, x: number, y: number, camp: string | null, guard: boolean, elite = false): Enemy2D {
-    const st = KINDS[kind];
+    const bk = BASE_KIND[kind] || kind;
+    const st = KINDS[bk];
     const mult = (1 + (lvl - 1) * 0.35) * (elite ? 1.5 : 1);
     const e: Enemy2D = {
-      id: this.eid++, kind, elite, boss: false, bkey: '', scale: 1, lvl, nome: st.nome, den: '',
+      id: this.eid++, kind, elite, boss: false, bkey: '', scale: 1, lvl, nome: st.nome, den: '', base: bk,
       pos: { x, y }, home: { x, y },
       hp: Math.round(st.hp * mult), maxHp: Math.round(st.hp * mult),
       state: 'idle', stT: 0, animT: 0, frame: 0,
@@ -800,7 +810,7 @@ class Game2D {
     const st = KINDS[bd.kind];
     const mult = (1 + (lvl - 1) * 0.35) * 6;
     const e: Enemy2D = {
-      id: this.eid++, kind: bd.kind, elite: false, boss: true, bkey: `boss/${zone}`, den: '',
+      id: this.eid++, kind: bd.kind, elite: false, boss: true, bkey: `boss/${zone}`, den: '', base: bd.kind,
       scale: bd.scale, lvl, nome: bd.nome,
       pos: { x, y }, home: { x, y },
       hp: Math.round(st.hp * mult), maxHp: Math.round(st.hp * mult),
@@ -937,7 +947,7 @@ class Game2D {
     const d = Math.hypot(dx, dy) || 1;
     const kb = heavy ? (this.hasSkill('furia') ? 20 : 11) : 6;
     this.world.moveEntity(e.pos, (dx / d) * kb, (dy / d) * kb, 3);
-    if (e.kind === 'f') e.mad = true;
+    if ((e.base || e.kind) === 'f') e.mad = true;
     if (e.state === 'idle' || e.state === 'return') e.state = 'chase';
     if (e.hp <= 0 && !e.dead) {
       e.dead = true;
@@ -1042,7 +1052,7 @@ class Game2D {
             const a = this.rng() * Math.PI * 2;
             this.world.moveEntity(e.pos, Math.cos(a) * 6, Math.sin(a) * 6, 3);
           }
-          if (e.kind === 'h' && e.howlCd <= 0 && d < aggro * 0.8) {
+          if ((e.base || e.kind) === 'h' && e.howlCd <= 0 && d < aggro * 0.8) {
             e.howlCd = 8;
             for (const o of this.enemies) if (!o.dead && dist2d(o.pos.x, o.pos.y, e.pos.x, e.pos.y) < 70) o.buff = 4;
             this.ui.dmgNumber((e.pos.x - this.camX) * this.Z, (e.pos.y - this.camY) * this.Z - 24, '~', '#aee6ff');
@@ -1052,7 +1062,7 @@ class Game2D {
         }
         case 'chase': {
           if (p.dead || (d > aggro * (e.boss ? 3.5 : 2.1) && !e.mad)) { e.state = 'return'; break; }
-          if (e.kind === 'a') {
+          if ((e.base || e.kind) === 'a') {
             if (d < 26) {
               const dx = (e.pos.x - p.pos.x) / d, dy = (e.pos.y - p.pos.y) / d;
               this.world.moveEntity(e.pos, dx * spdOf(e) * dt, dy * spdOf(e) * dt, 3);
@@ -1069,7 +1079,7 @@ class Game2D {
             }
             break;
           }
-          if (e.kind === 'm') {
+          if ((e.base || e.kind) === 'm') {
             let wounded: Enemy2D | null = null;
             for (const o of this.enemies) if (!o.dead && o !== e && o.hp < o.maxHp && dist2d(o.pos.x, o.pos.y, e.pos.x, e.pos.y) < 46) { wounded = o; break; }
             if (wounded) {
@@ -1087,11 +1097,11 @@ class Game2D {
             }
             break;
           }
-          if (e.kind === 'g' && e.chargeCd <= 0 && d < 70 && d > 16 && e.tired <= 0) {
+          if ((e.base || e.kind) === 'g' && e.chargeCd <= 0 && d < 70 && d > 16 && e.tired <= 0) {
             e.state = 'windup'; e.stT = windupOf('g'); break;
           }
-          const reach = e.boss ? 24 : e.kind === 'T' ? 16 : 14;
-          if (d < reach) { e.state = 'windup'; e.stT = enraged ? windupOf(e.kind) * 0.7 : windupOf(e.kind); }
+          const reach = e.boss ? 24 : (e.base || e.kind) === 'T' ? 16 : 14;
+          if (d < reach) { e.state = 'windup'; e.stT = enraged ? windupOf(e.base || e.kind) * 0.7 : windupOf(e.base || e.kind); }
           else {
             const dx = (p.pos.x - e.pos.x) / d, dy = (p.pos.y - e.pos.y) / d;
             this.world.moveEntity(e.pos, dx * spdOf(e) * dt, dy * spdOf(e) * dt, 3);
@@ -1101,14 +1111,14 @@ class Game2D {
         }
         case 'windup': {
           if (e.stT <= 0) {
-            if (e.kind === 'g') {
+            if ((e.base || e.kind) === 'g') {
               e.state = 'charge'; e.chargeT = 0.5; e.chargeCd = 4;
               const dd = Math.max(1, d);
               e.chargeDx = (p.pos.x - e.pos.x) / dd; e.chargeDy = (p.pos.y - e.pos.y) / dd;
               break;
             }
             e.state = 'hit'; e.stT = 0.2;
-            const reach = e.boss ? 30 : e.kind === 'T' ? 26 : 18;
+            const reach = e.boss ? 30 : (e.base || e.kind) === 'T' ? 26 : 18;
             if (e.boss) this.rings.push({ x: e.pos.x, y: e.pos.y, t: 0 }); // slam em área
             if (d < reach && !p.dead) {
               const m = dmgMult(this.player.ne(), e.lvl);
