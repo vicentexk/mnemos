@@ -1,5 +1,7 @@
 # ⚔️ LEONIS — Os Que Voltam
 
+[![Jogue no navegador](https://img.shields.io/badge/status-M2D_2D_pixel-art-yellow)]() [![engine](https://img.shields.io/badge/engine-Canvas_2D_+_TS-blue)]()
+
 > *Épico ensolarado, nunca bobo. Tudo o que a humanidade tem, um Leonis trouxe.*
 
 RPG-sandbox **2D pixel art top-down** de mundo aberto, inspirado em Cube World (referência original) e Forager (progressão), jogável no navegador. Um único mapa contínuo de **5.760 × 5.760 px sem loading**, com 10 zonas de nível 1 a 12 — **todas abertas desde o início**: dá pra ir direto ao final e morrer com estilo.
