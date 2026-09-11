@@ -555,14 +555,14 @@ export class World2D {
       banhadol: 0.058, picos: 0.046, obsidiana: 0.046, umbigo: 0.028
     };
     const keys: Record<string, string[]> = {
-      savana: ['t/baobao', 't/baobao', 't/cactus'],
-      selva: ['t/petro', 't/petro', 't/mush'],
-      costa: ['t/palm', 't/palm', 't/baobao'],
-      deserto: ['t/cactus', 't/cactus', 't/dead'],
-      banhadol: ['t/dead', 't/mush', 't/dead'],
+      savana: ['t/green', 't/apple', 't/dead', 't/deadbig'],
+      selva: ['t/root', 't/tent', 't/mushP'],
+      costa: ['t/palm', 't/palm', 't/green'],
+      deserto: ['t/dead', 't/deadbig', 't/mush'],
+      banhadol: ['t/mush', 't/mushP', 't/tent'],
       picos: ['t/pine', 't/pine', 't/dead'],
-      obsidiana: ['t/obs', 't/obs', 't/dead'],
-      umbigo: ['t/obs', 't/dead', 't/petro']
+      obsidiana: ['t/skulltotem', 't/deadbig', 't/dead'],
+      umbigo: ['t/skulltotem', 't/dead', 't/mushP', 'r/ruin1']
     };
     for (let ty = 4; ty < NH - 4; ty++) {
       for (let tx = 4; tx < NW - 4; tx++) {
@@ -577,7 +577,8 @@ export class World2D {
         if (nearCamp) continue;
         if (this.rng() > dens[z.biome]) continue;
         const ks = keys[z.biome];
-        const key = ks[Math.floor(this.rng() * ks.length)];
+        let key = ks[Math.floor(this.rng() * ks.length)];
+        if (this.rng() < 0.07 && (z.biome === 'picos' || z.biome === 'umbigo' || z.biome === 'costa')) key = this.rng() < 0.5 ? 'r/ruin1' : 'r/ruin2';
         const px = tx * T + Math.floor(this.rng() * 8), py = ty * T + Math.floor(this.rng() * 8);
         const solid = key !== 't/cactus' ? 1 : 1;
         const p: Prop = { key, x: px, y: py, solid, chunk: this.chunkOf(px, py), flip: this.rng() > 0.5 };

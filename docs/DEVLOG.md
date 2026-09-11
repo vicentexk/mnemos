@@ -120,3 +120,13 @@ Feedback do playtest 1: chão bugado, sprites feios (anatomia), HUD não-pixel, 
 - **Fluxo dungeon**: fade de teleporte 0,3s + 0,45s, guardas spawnam na chegada, morrem com o jogador (respawn limpo), cristal de saída pulsa (2 frames).
 - **PORTE .EXE**: Electron v14.2.9 win64 + assets com **base relativa** (`vite build --base=./` no config) + fetch/imagens/fontes com caminhos relativos + manifest de armas via script tag (file:// não roda fetch) → `release/MNEMOS-Alpha-0.3-win64.zip` (~85MB, subir junto do commit). main.js: janela 1280×720, menu oculto, isolamento padrão.
 - Bundle 138.7 kB (49.6 gz); tsc limpo; QA docs/qa-poroes.png.
+
+## Sessão 8 — Arte do Usuário Integrada + Alpha 0.4
+**Meta:** primeiro lote das 47 folhas dentro do jogo, sem blur, e armas redimensionadas.
+
+- **Pipeline de integração**: remoção de fundo por cor (feather no alpha), detecção de componentes (scipy), picks por hue/área/posição, recorte por sprite, escala NEAREST pro tamanho do jogo, atlas `public/img/externa.png` (512×256, 32 sprites) + manifest via script tag (file://).
+- **Integrado nesta rodada**: 11 árvores/plantas (green, apple, dead, deadbig, palm, pine, mush, mushP, tent, root, skulltotem), 2 ruínas brancas, portal dourado (A PORTA 2.0), buraco de porão, baú de dungeon, 4 animais (cavalo, bode, pato, jumento — 2 frames), 4 novos mobs de porão (goblin, golem, flamejante, ouriço) com mix temático por dungeon.
+- **Distribuição no mundo**: ~4.800 props usando as árvores novas por bioma; ruínas brancas em Picos/Umbigo/Costa (7%).
+- **FIX: armas gigantes** — drawWeaponAt desenhava ½ do sprite 48px (24px visíveis); agora desenha ⅓ (16px, ~2.5× o personagem). Arma de mão, não torre.
+- **Pendências mapeadas** (próximos lotes): tiles de chão por bioma (imgs 1–12), casas/vila (13–17), mobs completos c/ animações (29–39), retratos novos (40), UI/livro/bestiário (41–47).
+- tsc limpo; build 139.25 kB (49.77 gz); server 200; **release/MNEMOS-Alpha-0.4-win64.zip** (substitui a 0.3).

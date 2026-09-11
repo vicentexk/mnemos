@@ -5,7 +5,7 @@
 
 import * as defs from './data/defs';
 import { RACES, WEAPONS, RaceDef, WeaponDef, ZONES, ORES, POI2, MOUNTS, SKILLS, WEAPON_FAM, MountDef, BOSSES, DUNGEONS } from './data/defs';
-import { buildBossTint } from './pix';
+import { buildBossTint, buildExternalSheet } from './pix';
 import { Input, AudioSys, saveGame, loadGame, hasSave, clearSave, clamp, dist2d, mulberry32 } from './core';
 import { World2D, COLL } from './world2d';
 import { SPR, buildAllSprites, buildTitlePanorama, buildOreSprite, buildHerbSprite, buildWeaponSprites, buildMountVariants, loadWeaponAtlas, PAL } from './pix';
@@ -237,6 +237,16 @@ class Game2D {
       wim.src = 'img/weapons.png';
     };
     document.head.appendChild(ws);
+
+    // atlas externo (folhas do usuário integradas)
+    const xe = document.createElement('script');
+    xe.src = 'img/externa.manifest.js';
+    xe.onload = () => {
+      const eim = new Image();
+      eim.onload = () => buildExternalSheet(eim);
+      eim.src = 'img/externa.png';
+    };
+    document.head.appendChild(xe);
 
     // barco: primeira água navegável perto do pier
     outer: for (let r = 2; r < 24; r++) {
@@ -1567,7 +1577,7 @@ class Game2D {
     g.save();
     g.translate(Math.round(x), Math.round(y));
     g.rotate(ang);
-    g.drawImage(s, 2, -Math.floor(s.height / 4), Math.floor(s.width / 2), Math.floor(s.height / 2));
+    g.drawImage(s, 1, -Math.floor(s.height / 6), Math.floor(s.width / 3), Math.floor(s.height / 3));
     g.restore();
   }
 
@@ -2150,11 +2160,12 @@ class Game2D {
     const d = DUNGEONS.find(dd => dd.id === id)!;
     const r = this.world.denRects[id];
     if (!r) return;
+    // mob exclusivo por porão (sprites do usuário)
     const mix: Record<string, string[]> = {
-      porao: ['s', 's', 'f'], mare: ['g', 's', 'a', 'f'], fossil: ['T', 'm', 's', 'a'],
-      fornalha: ['T', 'h', 'g', 'a'], cripta: ['T', 'h', 'g', 'm']
+      porao: ['goblin'], mare: ['fogo', 'goblin'], fossil: ['espinho', 'goblin'],
+      fornalha: ['golem', 'fogo'], cripta: ['golem', 'espinho', 'fogo']
     };
-    const kinds = mix[id] || ['s', 'f', 'a'];
+    const kinds = mix[id] || ['goblin'];
     const n = 7 + Math.floor(d.lvl / 3);
     for (let k = 0; k < n; k++) {
       const gx = (r.ox + 5 + this.rng() * (r.W - 10)) * T;

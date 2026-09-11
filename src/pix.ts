@@ -858,6 +858,19 @@ export function buildBossTint(kind: string, cor: string, zone: string) {
 }
 
 // atlas de armas do usuário (famílias × 10 tiers)
+// atlas externo do usuário (folhas integradas): registra sprites 1:1, sem blur
+export function buildExternalSheet(img: HTMLImageElement) {
+  const man = (window as any).EXTERNA_MANIFEST as Record<string, [number, number, number, number]>;
+  if (!man) return;
+  for (const [key, [x, y, w, h]] of Object.entries(man)) {
+    const c = cv(w, h);
+    const g = ctx2(c);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(img, x, y, w, h, 0, 0, w, h);
+    SPR[key] = c;
+  }
+}
+
 export function loadWeaponAtlas(img: HTMLImageElement, famByWeapon: Record<string, string>, manifest: Record<string, [number, number]>, cell: number) {
   for (const [wid, fam] of Object.entries(famByWeapon)) {
     for (let t = 0; t < 10; t++) {
