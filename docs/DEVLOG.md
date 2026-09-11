@@ -111,3 +111,12 @@ Feedback do playtest 1: chão bugado, sprites feios (anatomia), HUD não-pixel, 
 - **Tela de vitória**: overlay épico-solar com stats da jornada (nível, chefes X/10, tempo, cobres) + citação da Grão-Nau; "continuar explorando" mantém o sandbox.
 - Persistência: `bossesKilled` + `won` no save v2; quest "OS 10 TRONOS" guia o fim de jogo.
 - QA visual `docs/qa-covis.png`; bundle 129.9 kB (46.5 gz); tsc limpo.
+
+## Sessão 7 — M4: História, Porões e Porte .exe
+**Meta:** objetivo claro estilo Minish Cap (missões encadeadas), dungeons, e o jogo rodando como .exe no Windows.
+
+- **HISTÓRIA**: Q1 carga → Q2 Ronceiro → **O TOTEM CANTOR** (matar o Fareja-Mor revela, via Malvina, que cada Guardião guarda uma **SIGILA** do velho Bravo) → **AS DEZ SIGILAS** (10 chefes + 5 porões) → **A PORTA** (10/10 destrava) → vitória. Save v2 persiste q3/densDone.
+- **PORÕES (dungeons)**: 5 — Porão do Naufrágio (Berço Nv2), Gruta da Maré (Costa Nv4), Jardim Fóssil (Selva Nv5), Fornalha de Obsidiana (Nv10) e **Cripta do Navegante** (Umbigo Nv12). Entrada = buraco ◘ no mapa; interior = sala 30×24 isolada no oceano (pisos/paredes de pedra desenhados no chunk), tochas, pilares, 7–11 guardas do mix da zona + 1 ELITE junto do baú (Nv alto + loot 'x'). Baú → spoila garantida + cobres + minério/ervas; ◘ fica cinza no mapa.
+- **Fluxo dungeon**: fade de teleporte 0,3s + 0,45s, guardas spawnam na chegada, morrem com o jogador (respawn limpo), cristal de saída pulsa (2 frames).
+- **PORTE .EXE**: Electron v14.2.9 win64 + assets com **base relativa** (`vite build --base=./` no config) + fetch/imagens/fontes com caminhos relativos + manifest de armas via script tag (file:// não roda fetch) → `release/MNEMOS-Alpha-0.3-win64.zip` (~85MB, subir junto do commit). main.js: janela 1280×720, menu oculto, isolamento padrão.
+- Bundle 138.7 kB (49.6 gz); tsc limpo; QA docs/qa-poroes.png.

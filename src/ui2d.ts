@@ -65,7 +65,7 @@ export class UI2D {
     this.root.appendChild(this.victoryEl);
   }
 
-  showVictory(s: { nome: string; nivel: number; chefes: string; tempo: string; cobres: number }, chefe: string) {
+  showVictory(s: { nome: string; nivel: number; chefes: string; salas: string; tempo: string; cobres: number }, chefe: string) {
     this.victoryEl.innerHTML = `
       <div class="vcard">
         <h1>♛ VOCÊ ATRAVESSOU</h1>
@@ -75,6 +75,7 @@ export class UI2D {
           <div><span>LEONIS</span><b>${s.nome}</b></div>
           <div><span>NÍVEL</span><b>${s.nivel}</b></div>
           <div><span>CHEFES</span><b>${s.chefes}</b></div>
+          <div><span>PORÕES</span><b>${s.salas}</b></div>
           <div><span>TEMPO</span><b>${s.tempo}</b></div>
           <div><span>COBRES</span><b>◉ ${s.cobres}</b></div>
         </div>
@@ -362,6 +363,15 @@ export class UI2D {
       c.fillStyle = alive ? '#ffd23a' : '#7a8a94';
       c.fillText('♛', dx, dy + 4);
     }
+    for (const dn of g.world.dens) {
+      const dx = (dn.x / 16 - px) / view * S + S / 2;
+      const dy = (dn.y / 16 - py) / view * S + S / 2;
+      if (dx < -6 || dx > S + 6 || dy < -6 || dy > S + 6) continue;
+      c.lineWidth = 3; c.strokeStyle = '#000';
+      c.strokeText('◘', dx, dy + 4);
+      c.fillStyle = g.densDone.has(dn.id) ? '#7a8a94' : '#8fd0ff';
+      c.fillText('◘', dx, dy + 4);
+    }
     // player
     c.save();
     c.translate(S / 2, S / 2);
@@ -514,6 +524,12 @@ export class UI2D {
       bg.strokeText('♛', d.x / 16 - 5, d.y / 16 + 5);
       bg.fillStyle = g.bossesKilled.has(d.zone) ? '#7a8a94' : '#ffd23a';
       bg.fillText('♛', d.x / 16 - 5, d.y / 16 + 5);
+    }
+    for (const dn of g.world.dens) {
+      bg.lineWidth = 3; bg.strokeStyle = '#000';
+      bg.strokeText('◘', dn.x / 16 - 5, dn.y / 16 + 5);
+      bg.fillStyle = g.densDone.has(dn.id) ? '#7a8a94' : '#8fd0ff';
+      bg.fillText('◘', dn.x / 16 - 5, dn.y / 16 + 5);
     }
     // player
     const px = g.player.pos.x / 16, py = g.player.pos.y / 16;

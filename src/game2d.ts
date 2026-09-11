@@ -4,7 +4,7 @@
 // ============================================================
 
 import * as defs from './data/defs';
-import { RACES, WEAPONS, RaceDef, WeaponDef, ZONES, ORES, POI2, MOUNTS, SKILLS, WEAPON_FAM, MountDef, BOSSES } from './data/defs';
+import { RACES, WEAPONS, RaceDef, WeaponDef, ZONES, ORES, POI2, MOUNTS, SKILLS, WEAPON_FAM, MountDef, BOSSES, DUNGEONS } from './data/defs';
 import { buildBossTint } from './pix';
 import { Input, AudioSys, saveGame, loadGame, hasSave, clearSave, clamp, dist2d, mulberry32 } from './core';
 import { World2D, COLL } from './world2d';
@@ -68,6 +68,7 @@ interface Enemy2D {
   dmg: number; speed: number; camp: string | null; guard: boolean;
   mad: boolean; buff: number; shootCd: number; chargeCd: number;
   chargeT: number; chargeDx: number; chargeDy: number; tired: number; howlCd: number;
+  den: string;
 }
 
 interface Proj2D {
@@ -143,6 +144,9 @@ class Game2D {
   runStats = { heavy: 0, fedJav: 0, boated: false, visitedPicos: false, umbigoT: 0 };
   bossesKilled: Set<string> = new Set<string>();
   won = false;
+  q3 = 0;
+  densDone: Set<string> = new Set<string>();
+  tele: { t: number; mid: boolean; to: { x: number; y: number } | null; den: string | null } | null = null;
   rings: { x: number; y: number; t: number }[] = [];
   learned: Set<string> = new Set<string>();
   skillPts = 0;
@@ -221,14 +225,18 @@ class Game2D {
       this.spawnNpcs();
     };
     pim.onerror = () => { this.spawnNpcs(); }; // sem retrato, NPC sem face
-    pim.src = '/img/portraits.png';
+    pim.src = 'img/portraits.png';
 
-    // atlas de armas do usuário (famílias × 10 tiers)
-    fetch('/img/weapons.json').then(r => r.json()).then(man => {
+    // atlas de armas (famílias × 10 tiers) — via script tag (funciona em file:// pro .exe)
+    const ws = document.createElement('script');
+    ws.src = 'img/weapons.manifest.js';
+    ws.onload = () => {
+      const man = (window as any).WEAPONS_MANIFEST;
       const wim = new Image();
       wim.onload = () => loadWeaponAtlas(wim, WEAPON_FAM, man, 48);
-      wim.src = '/img/weapons.png';
-    }).catch(() => { });
+      wim.src = 'img/weapons.png';
+    };
+    document.head.appendChild(ws);
 
     // barco: primeira água navegável perto do pier
     outer: for (let r = 2; r < 24; r++) {
@@ -431,7 +439,7 @@ class Game2D {
     this.mountStates = {}; this.activeMountId = 'ronceiro';
     this.learned = new Set<string>(); this.skillPts = 0;
     this.runStats = { heavy: 0, fedJav: 0, boated: false, visitedPicos: false, umbigoT: 0 };
-    this.bossesKilled = new Set<string>(); this.won = false;
+    this.bossesKilled = new Set<string>(); this.won = false; this.q3 = 0; this.densDone = new Set<string>(); this.tele = null;
     this.initMountStates();
     this.mount.kind = 'ronceiro'; this.mount.def = MOUNTS[0];
     this.mount.maxHp = MOUNTS[0].hp; this.mount.hp = MOUNTS[0].hp;
@@ -467,7 +475,7 @@ class Game2D {
     const st = KINDS[kind];
     const mult = (1 + (lvl - 1) * 0.35) * (elite ? 1.5 : 1);
     const e: Enemy2D = {
-      id: this.eid++, kind, elite, boss: false, bkey: '', scale: 1, lvl, nome: st.nome,
+      id: this.eid++, kind, elite, boss: false, bkey: '', scale: 1, lvl, nome: st.nome, den: '',
       pos: { x, y }, home: { x, y },
       hp: Math.round(st.hp * mult), maxHp: Math.round(st.hp * mult),
       state: 'idle', stT: 0, animT: 0, frame: 0,
@@ -674,6 +682,7 @@ class Game2D {
     this.updateProjs(dt);
     this.updatePickups(dt);
     this.updateCommon(dt);
+    this.updateTele(dt);
     this.updateBossBar();
   }
 
@@ -781,7 +790,7 @@ class Game2D {
     const st = KINDS[bd.kind];
     const mult = (1 + (lvl - 1) * 0.35) * 6;
     const e: Enemy2D = {
-      id: this.eid++, kind: bd.kind, elite: false, boss: true, bkey: `boss/${zone}`,
+      id: this.eid++, kind: bd.kind, elite: false, boss: true, bkey: `boss/${zone}`, den: '',
       scale: bd.scale, lvl, nome: bd.nome,
       pos: { x, y }, home: { x, y },
       hp: Math.round(st.hp * mult), maxHp: Math.round(st.hp * mult),
@@ -934,6 +943,8 @@ class Game2D {
     if (e.boss) {
       const bd = BOSSES.find(b => b.nome === e.nome)!;
       this.bossesKilled.add(bd.zone);
+      if (bd.zone === 'berco' && this.q3 === 0) { this.q3 = 1; this.malvinaRevela(); }
+      else if (this.bossesKilled.size >= 10) this.ui.zoneTitle('AS DEZ SIGILAS CANTAM', 'A PORTA do Umbigo está aberta…', '#ffd23a');
       this.skillPts++;
       this.audio.sfx('tame');
       this.ui.zoneTitle(`${bd.nome.toUpperCase()} DERROTADO`, bd.final ? '…a porta está aberta.' : '+1 PONTO DE PERÍCIA · zona limpa', '#8fe08f');
@@ -1319,6 +1330,7 @@ class Game2D {
       if (b.tipo === 'carga' && b.dados.picked) continue;
       let key = b.key;
       if (b.tipo === 'fogueira') key = `b/fire${Math.floor(this.time * 6) % 2}`;
+      if (b.tipo === 'dcrystal') key = `d/crystal${Math.floor(this.time * 3) % 2}`;
       if (b.tipo === 'bau' && b.dados.open) key = 'b/chestO';
       const bx = b.x, by = b.y;
       list.push({
@@ -1494,6 +1506,13 @@ class Game2D {
       g.stroke();
     }
     g.lineWidth = 1;
+
+    // fade de teleporte (porões)
+    if (this.tele) {
+      const a = this.tele.mid ? Math.max(0, 1 - (this.tele.t - 0.3) / 0.45) : Math.min(1, this.tele.t / 0.3);
+      g.fillStyle = `rgba(4,4,8,${Math.min(1, a)})`;
+      g.fillRect(0, 0, vw, vh);
+    }
 
     // mira
     if (this.state === 'play' && !this.uiOpen()) {
@@ -1697,6 +1716,14 @@ class Game2D {
       if (b.tipo !== 'porta') continue;
       if (dist2d(px, py, b.x + b.w / 2, b.y + b.h) < 40) return { tipo: 'porta' };
     }
+    for (const dn of this.world.dens) if (dist2d(px, py, dn.x, dn.y) < 18) return { tipo: 'dhole', a: dn };
+    for (const b of this.world.buildings) {
+      if (b.tipo === 'dbau' && dist2d(px, py, b.x + b.w / 2, b.y + b.h) < 20) {
+        if (b.dados.open) return null;
+        return { tipo: 'dbau', a: b };
+      }
+      if (b.tipo === 'dcrystal' && dist2d(px, py, b.x + b.w / 2, b.y + b.h) < 18) return { tipo: 'dout', a: b };
+    }
     if (dist2d(px, py, this.boat.x, this.boat.y) < 20 && !p.onBoat) return { tipo: 'boat' };
     for (const o of this.world.ores) if (o.cd <= 0 && dist2d(px, py, o.x, o.y) < 14) return { tipo: 'ore', a: o };
     for (const h of this.world.herbs) if (h.cd <= 0 && dist2d(px, py, h.x, h.y) < 12) return { tipo: 'herb', a: h };
@@ -1732,9 +1759,16 @@ class Game2D {
       case 'npc': this.ui.prompt(`<b>E</b> FALAR COM ${n.a.nome.toUpperCase()}`); break;
       case 'porta': {
         const aberta = this.bossesKilled.has('umbigo');
-        this.ui.prompt(aberta ? '<b>E</b> ATRAVESSAR A PORTA' : '☠ O PORTEIRO te encara… derrote-o');
+        this.ui.prompt(aberta ? '<b>E</b> ATRAVESSAR A PORTA' : `☠ O PORTEIRO te encara… (${this.bossesKilled.size}/10 Sigilas)`);
         break;
       }
+      case 'dhole': {
+        const d = DUNGEONS.find(dd => dd.id === n.a.id)!;
+        this.ui.prompt(`<b>E</b> DESCER: ${d.nome} (Nv.${d.lvl})`);
+        break;
+      }
+      case 'dbau': this.ui.prompt('<b>E</b> ABRIR BAÚ DO PORÃO'); break;
+      case 'dout': this.ui.prompt('<b>E</b> SUBIR PRA SUPERFÍCIE'); break;
       case 'beast': {
         const id = n.a.id as string;
         this.ui.prompt(id === 'javalina' ? '<b>E</b> DAR CARNE 🍖 À JAVALINA' : 'BUFELO — treine pesado contra feras (RMB)');
@@ -1767,6 +1801,9 @@ class Game2D {
         break;
       }
       case 'beast': this.interactBeast(n.a); break;
+      case 'dhole': this.enterDungeon(n.a.id); break;
+      case 'dbau': this.openDungeonChest(n.a); break;
+      case 'dout': this.exitDungeon(n.a.dados.den); break;
       case 'porta': {
         if (this.bossesKilled.has('umbigo')) {
           if (!this.won) this.victory();
@@ -2075,12 +2112,102 @@ class Game2D {
     }
   }
 
+  // ---------------- porões ----------------
+  private startTele(x: number, y: number, den: string | null) {
+    this.enemies = this.enemies.filter(e => !e.den);
+    this.tele = { t: 0, mid: false, to: { x, y }, den };
+    this.audio.sfx('ui');
+  }
+
+  enterDungeon(id: string) {
+    const d = DUNGEONS.find(dd => dd.id === id)!;
+    const r = this.world.denRects[id];
+    if (!r) return;
+    this.startTele((r.ox + 4) * T, (r.oy + 4) * T, id);
+    this.ui.zoneTitle(d.nome, `Nv.${d.lvl} · limpe a sala e abra o baú`, d.cor);
+  }
+
+  exitDungeon(id: string) {
+    const den = this.world.dens.find(dd => dd.id === id);
+    if (den) this.startTele(den.x, den.y + 10, null);
+  }
+
+  private updateTele(dt: number) {
+    const t = this.tele;
+    if (!t) return;
+    t.t += dt;
+    if (!t.mid && t.t >= 0.3) {
+      t.mid = true;
+      this.enemies = this.enemies.filter(e => !e.den);
+      this.player.pos.x = t.to!.x;
+      this.player.pos.y = t.to!.y;
+      if (t.den) this.spawnDungeonGuards(t.den);
+    }
+    if (t.t >= 0.75) this.tele = null;
+  }
+
+  private spawnDungeonGuards(id: string) {
+    const d = DUNGEONS.find(dd => dd.id === id)!;
+    const r = this.world.denRects[id];
+    if (!r) return;
+    const mix: Record<string, string[]> = {
+      porao: ['s', 's', 'f'], mare: ['g', 's', 'a', 'f'], fossil: ['T', 'm', 's', 'a'],
+      fornalha: ['T', 'h', 'g', 'a'], cripta: ['T', 'h', 'g', 'm']
+    };
+    const kinds = mix[id] || ['s', 'f', 'a'];
+    const n = 7 + Math.floor(d.lvl / 3);
+    for (let k = 0; k < n; k++) {
+      const gx = (r.ox + 5 + this.rng() * (r.W - 10)) * T;
+      const gy = (r.oy + 5 + this.rng() * (r.H - 10)) * T;
+      const e = this.addEnemy(kinds[k % kinds.length], d.lvl, gx, gy, null, false);
+      e.den = id;
+    }
+    const gg = this.addEnemy(kinds[0], d.lvl, (r.ox + r.W - 6) * T, (r.oy + r.H - 6) * T, null, true, true);
+    gg.den = id;
+  }
+
+  private openDungeonChest(b: any) {
+    if (b.dados.open) return;
+    b.dados.open = true;
+    const d = DUNGEONS.find(dd => dd.id === b.dados.den)!;
+    this.densDone.add(d.id);
+    this.audio.sfx('open');
+    const loot = rollLoot(d.loot, 'x', this.rng);
+    const p = this.player;
+    for (const gg of loot) {
+      const cur = gg.slot === 'arma' ? p.equip.armaNivel : gg.slot === 'peitoral' ? p.equip.peitoralNivel : p.equip.arreioNivel;
+      if (gg.nivel > cur) {
+        if (gg.slot === 'arma') { p.equip.armaNivel = gg.nivel; p.equip.multArma = gg.mult; }
+        else if (gg.slot === 'peitoral') { p.equip.peitoralNivel = gg.nivel; p.equip.multPeitoral = gg.mult; }
+        else p.equip.arreioNivel = gg.nivel;
+        this.ui.feed(`SPOILA DO PORÃO: ${gg.slot.toUpperCase()} NV.${gg.nivel}`, d.cor);
+        this.audio.sfx('level');
+      } else p.cobres += gg.nivel * 5;
+    }
+    const cob = 20 + d.loot * 6;
+    p.cobres += cob;
+    const ore = defs.oreDaZona(d.lvl);
+    p.res[ore] = (p.res[ore] || 0) + 3;
+    p.res['erva'] = (p.res['erva'] || 0) + 2;
+    this.ui.feed(`+${cob} ◉ · 3 ${(ORES[ore]?.nome || ore).toUpperCase()} · 2 ERVAS`, '#ffe9a0');
+    this.ui.feed(`PORÃO LIMPO: ${d.nome} (${this.densDone.size}/${DUNGEONS.length})`, d.cor);
+    this.save(false);
+  }
+
+  private malvinaRevela() {
+    this.ui.dialogFace('MALVINA', 6,
+      'O totem cantou — ouviu daqui!<br>O <b>Fareja-Mor</b> guardava uma <b>Sigila</b>: selo do velho Bravo.<br><br>Cada zona tem seu Guardião, cada Guardião, uma Sigila. São <b>dez</b> — sem as dez, a PORTA do Umbigo é só pedra.<br>E os <b>porões</b> escuros (◘ no mapa) guardam ferro dos afogados. Descanso pra quem caça guardiões.<br><br>Vá, Leonis. Junte as dez cantorias e mande o Porteiro dormir.',
+      [{ label: 'PELAS DEZ', cb: () => { } }]);
+    this.audio.sfx('ui');
+  }
+
   victory() {
     const bd = BOSSES.find(b => b.final)!;
     this.ui.showVictory({
       nome: this.player.nome,
       nivel: this.player.nivel,
       chefes: `${this.bossesKilled.size}/${BOSSES.length}`,
+      salas: `${this.densDone.size}/${DUNGEONS.length}`,
       tempo: `${Math.floor(this.time / 60)}min ${Math.floor(this.time % 60)}s`,
       cobres: this.player.cobres
     }, bd.nome);
@@ -2107,8 +2234,10 @@ class Game2D {
     else if (this.q1 === 2) this.ui.quest('O COMBOIO ATACADO', 'Entregue a carga ao Brais.');
     else if (this.q2 === 1) this.ui.quest('O RONCEIRO FERIDO', 'Elimine os guardas da Corja perto da fera (a leste).');
     else if (this.q2 === 2) this.ui.quest('O RONCEIRO FERIDO', `Alimente o Ronceiro com ervas. (${this.mount.fed}/3)`);
-    else if (this.q2 >= 3) this.ui.quest('OS 10 TRONOS', 'Derrube os chefes de cada zona (♛ no mapa). O PORTEIRO espera no Umbigo.');
-    else this.ui.quest('EXPLORE O BRAVO', 'Acampamentos, minérios, zonas. M = mapa.');
+    else if (this.q3 === 0) this.ui.quest('O TOTEM CANTOR', 'Derrote o FAREJA-MOR no covil ♛ ao norte do Berço.');
+    else if (this.bossesKilled.size < 10) this.ui.quest('AS DEZ SIGILAS', `Guardiões: ${this.bossesKilled.size}/10 ♛ · Porões: ${this.densDone.size}/5 ◘`);
+    else if (!this.won) this.ui.quest('A PORTA', 'As dez Sigilas cantam. Atravesse A PORTA no Umbigo.');
+    else this.ui.quest('O BRAVO É SEU', 'Sandbox eterno: guardiões, porões, montarias. Obrigado por jogar!');
   }
 
   // ------------------------------------------------------------
@@ -2120,6 +2249,7 @@ class Game2D {
       v: 'm2d-2',
       skills: [...this.learned], pts: this.skillPts,
       bossesKilled: [...this.bossesKilled], won: this.won,
+      q3: this.q3, densDone: [...this.densDone],
       activeMountId: this.activeMountId,
       mountStates: this.mountStates,
       runStats: this.runStats,
@@ -2132,7 +2262,7 @@ class Game2D {
         hp: this.mount.hp, nome: this.mount.nome, pos: [this.mount.pos.x, this.mount.pos.y]
       },
       discovered: [...this.discovered],
-      chests: [...this.world.buildings.filter(b => b.tipo === 'bau' && b.dados.open).map(b => `${b.x},${b.y}`)]
+      chests: [...this.world.buildings.filter(b => (b.tipo === 'bau' || b.tipo === 'dbau') && b.dados.open).map(b => `${b.x},${b.y}`)]
     };
     if (saveGame(data)) { if (manual) this.ui.toast('JORNADA SALVA.'); }
     else this.ui.toast('ERRO AO SALVAR.');
@@ -2166,6 +2296,9 @@ class Game2D {
     this.skillPts = d.pts || 0;
     this.bossesKilled = new Set<string>(d.bossesKilled || []);
     this.won = !!d.won;
+    this.q3 = d.q3 || 0;
+    this.densDone = new Set<string>(d.densDone || []);
+    if (this.bossesKilled.has('berco') && this.q3 === 0) this.q3 = 1;
     this.runStats = { heavy: 0, fedJav: 0, boated: false, visitedPicos: false, umbigoT: 0, ...(d.runStats || {}) };
     this.mountStates = {};
     this.initMountStates();
@@ -2184,7 +2317,7 @@ class Game2D {
     }
     for (const key of d.chests || []) {
       const [x, y] = key.split(',').map(Number);
-      const b = this.world.buildings.find(bb => bb.tipo === 'bau' && bb.x === x && bb.y === y);
+      const b = this.world.buildings.find(bb => (bb.tipo === 'bau' || bb.tipo === 'dbau') && bb.x === x && bb.y === y);
       if (b) b.dados.open = true;
     }
     this.discovered = new Set(d.discovered || []);

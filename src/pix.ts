@@ -589,6 +589,7 @@ export function buildAllSprites(races: RaceLike[]) {
   buildAnimalSprites();
   buildEnemyKindSprites();
   buildDenSprites();
+  buildDungeonSprites();
 }
 
 function selaRonceiro() {
@@ -801,6 +802,44 @@ export function buildDenSprites() {
     outline('b/porta');
   };
   porta();
+}
+
+// sprites de porão: buraco, cristal, tocha, pilar
+export function buildDungeonSprites() {
+  { // buraco de entrada
+    const c = cv(24, 14); const g = ctx2(c);
+    const O = P(g, OUT), R = P(g, '#3a3630'), D = P(g, '#0c0a10'), L = P(g, '#55504a');
+    O(1, 4, 22, 10); R(2, 4, 20, 8); L(2, 4, 20, 2);
+    D(4, 7, 16, 6); D(6, 6, 12, 2);
+    R(3, 2, 4, 2); R(17, 2, 4, 2);
+    SPR['d/hole'] = c;
+  }
+  for (let f = 0; f < 2; f++) { // cristal de saída (pulsa)
+    const c = cv(12, 22); const g = ctx2(c);
+    const O = P(g, OUT), C = P(g, '#7ae0d0'), C2 = P(g, '#3aa890'), W = P(g, '#e8f8f0');
+    O(4, 0, 4, 2); O(3, 2, 6, 3); O(2, 5, 8, 8); O(3, 13, 6, 3); O(4, 16, 4, 2);
+    C(4, 2, 4, 2); C(3, 5, 6, 7); C2(4, 14, 4, 2); C2(3, 12, 6, 2);
+    W(4, 4 + f, 2, 3); W(6, 8, 1, 2);
+    O(1, 18, 10, 4); P(g, '#52525a')(2, 19, 8, 2);
+    SPR[`d/crystal${f}`] = c;
+  }
+  { // tocha
+    const c = cv(8, 18); const g = ctx2(c);
+    const O = P(g, OUT), W2 = P(g, '#6a4a2a'), F = P(g, '#ffb43a'), F2 = P(g, '#ff7828');
+    O(3, 8, 2, 10); W2(3, 8, 2, 10);
+    F(2, 2, 4, 5); F2(3, 4, 2, 3);
+    O(2, 1, 4, 1);
+    SPR['d/torch'] = c;
+  }
+  { // pilar
+    const c = cv(12, 26); const g = ctx2(c);
+    const O = P(g, OUT), S1 = P(g, '#4a545c'), S2 = P(g, '#39434a'), L = P(g, '#5c666e');
+    O(0, 0, 12, 5); S1(1, 1, 10, 3); L(1, 1, 10, 1);
+    O(2, 5, 8, 17); S1(3, 5, 6, 17); S2(3, 8, 2, 14);
+    O(0, 22, 12, 4); S1(1, 23, 10, 2);
+    SPR['d/pilar'] = c;
+    outline('d/pilar');
+  }
 }
 
 // tint de chefe: cópia do sprite do kind com cor por cima

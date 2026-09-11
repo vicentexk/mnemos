@@ -263,3 +263,15 @@ export const BOSSES: BossDef[] = [
   { zone: 'obsidiana', nome: 'Coração de Obsidiana', kind: 'T', lvl: 10, scale: 2.5, cor: '#c060e0', titulo: 'Bate uma vez por século' },
   { zone: 'umbigo',    nome: 'O PORTEIRO',           kind: 'T', lvl: 12, scale: 2.8, cor: '#ff4040', titulo: 'Ninguém atravessa sem pedir licença', final: true }
 ];
+
+// ============================================================
+// PORÕES (dungeons) — buracos escuros com sala, guardas e baú
+// ============================================================
+export interface DunDef { id: string; nome: string; zone: string; lvl: number; loot: number; cor: string; }
+export const DUNGEONS: DunDef[] = [
+  { id: 'porao',    nome: 'PORÃO DO NAUFRÁGIO',    zone: 'berco',     lvl: 2,  loot: 2,  cor: '#5a7a94' },
+  { id: 'mare',     nome: 'GRUTA DA MARÉ',          zone: 'costa',     lvl: 4,  loot: 4,  cor: '#3a9ad8' },
+  { id: 'fossil',   nome: 'JARDIM FÓSSIL',          zone: 'selva',     lvl: 5,  loot: 5,  cor: '#4ac06a' },
+  { id: 'fornalha', nome: 'FORNALHA DE OBSIDIANA',  zone: 'obsidiana', lvl: 10, loot: 10, cor: '#c060e0' },
+  { id: 'cripta',   nome: 'CRIPTA DO NAVEGANTE',    zone: 'umbigo',    lvl: 12, loot: 10, cor: '#ff5050' }
+];

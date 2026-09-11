@@ -3,7 +3,7 @@
 // Todas as zonas abertas desde o início (nível é do conteúdo).
 // ============================================================
 
-import { ZONES, MAP, POI2, ZoneDef, oreDaZona, ORES } from './data/defs';
+import { ZONES, DUNGEONS, MAP, POI2, ZoneDef, oreDaZona, ORES } from './data/defs';
 import { fbm, mulberry32, dist2d, smoothstep } from './core';
 import { SPR, PAL, cv, ctx2 } from './pix';
 
@@ -21,7 +21,7 @@ export interface HerbNode { id: string; x: number; y: number; kind: string; cd: 
 
 export interface Building {
   key: string; x: number; y: number; w: number; h: number; solid: boolean;
-  tipo: 'casa' | 'forja' | 'estabulo' | 'brais' | 'fogueira' | 'torre' | 'tenda' | 'pali' | 'bau' | 'wreck' | 'carga' | 'porta';
+  tipo: 'casa' | 'forja' | 'estabulo' | 'brais' | 'fogueira' | 'torre' | 'tenda' | 'pali' | 'bau' | 'wreck' | 'carga' | 'porta' | 'dhole' | 'dbau' | 'dcrystal';
   dados?: any;
 }
 
@@ -36,6 +36,9 @@ export class World2D {
   props: Prop[] = [];
   cityHouses = 0;
   bossDens: { zone: string; x: number; y: number }[] = [];
+  dens: { id: string; x: number; y: number }[] = [];
+  denRects: Record<string, { ox: number; oy: number; W: number; H: number }> = {};
+  denFloor: Uint8Array;
   npcSpawns: { x: number; y: number; face: number; nome: string; linhas: string[] }[] = [];
   animals: { x: number; y: number; kind: string }[] = [];
   propsByChunk = new Map<number, Prop[]>();
@@ -49,6 +52,8 @@ export class World2D {
     this.genProps();
     this.genLife();
     this.genBossDens();
+    this.denFloor = new Uint8Array(NW * NH);
+    this.genDungeons();
     this.buildMinimap();
   }
 
@@ -190,7 +195,7 @@ export class World2D {
   }
 
   private bld(key: string, x: number, y: number, w: number, h: number, tipo: Building['tipo'], dados?: any) {
-    this.buildings.push({ key, x, y, w, h, solid: tipo !== 'fogueira' && tipo !== 'brais', tipo, dados });
+    this.buildings.push({ key, x, y, w, h, solid: tipo !== 'fogueira' && tipo !== 'brais' && tipo !== 'dhole' && tipo !== 'dcrystal', tipo, dados });
     if (tipo === 'fogueira') dados!.fx = x + 5;
     if (tipo !== 'fogueira' && tipo !== 'brais' && tipo !== 'wreck' && tipo !== 'carga' && tipo !== 'bau') {
       this.fillRectColl(x, y, w, h);
@@ -450,6 +455,78 @@ export class World2D {
     }
   }
 
+  // ---------------- porões (dungeons) ----------------
+  private genDungeons() {
+    const zona = (id: string) => ZONES.find(z => z.id === id)!;
+    const anchors: Record<string, [number, number]> = {
+      porao: [POI2.wreck.x + 8, POI2.wreck.y + 5],
+      mare: [POI2.pier.x + 16, POI2.pier.y - 8],
+      fossil: [zona('selva').cx + 16, zona('selva').cy + 10],
+      fornalha: [zona('obsidiana').cx + 10, zona('obsidiana').cy + 12],
+      cripta: [zona('umbigo').cx - 12, zona('umbigo').cy + 10]
+    };
+    for (const d of DUNGEONS) {
+      const [ax, ay] = anchors[d.id];
+      const p = this.randLandNear(ax, ay, 8);
+      if (!p) continue;
+      const ex = p.x * T, ey = p.y * T;
+      this.props.push({ key: 'd/hole', x: ex, y: ey, solid: 0, chunk: this.chunkOf(ex, ey), flip: false });
+      this.dens.push({ id: d.id, x: ex, y: ey });
+      this.stampDungeon(d.id);
+    }
+  }
+
+  private findOceanRect(id: string): { x: number; y: number } {
+    const pref: Record<string, [number, number]> = { porao: [70, 30], mare: [300, 322], fossil: [40, 300], fornalha: [40, 60], cripta: [300, 40] };
+    const W = 30, H = 24;
+    const [pcx, pcy] = pref[id];
+    for (let r = 0; r < 44; r++) {
+      for (let a = 0; a < Math.PI * 2; a += 0.4) {
+        const cx = Math.round(pcx + Math.cos(a) * r * 3), cy = Math.round(pcy + Math.sin(a) * r * 2);
+        const x0 = cx - (W >> 1), y0 = cy - (H >> 1);
+        if (x0 < 3 || y0 < 3 || x0 + W >= NW - 3 || y0 + H >= NH - 3) continue;
+        let cnt = 0;
+        for (let y = y0; y < y0 + H; y++) for (let x = x0; x < x0 + W; x++) if (this.land[x + y * NW]) cnt++;
+        if (cnt <= 4) return { x: x0, y: y0 };
+      }
+    }
+    return { x: Math.max(4, Math.min(NW - W - 4, pcx - (W >> 1))), y: Math.max(4, Math.min(NH - H - 4, pcy - (H >> 1))) };
+  }
+
+  private stampDungeon(id: string) {
+    const d = DUNGEONS.find(dd => dd.id === id)!;
+    const W = 30, H = 24;
+    const r = this.findOceanRect(id);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const tx = r.x + x, ty = r.y + y;
+        if (tx < 1 || ty < 1 || tx >= NW - 1 || ty >= NH - 1) continue;
+        const i = tx + ty * NW;
+        const edge = x === 0 || y === 0 || x === W - 1 || y === H - 1;
+        this.denFloor[i] = edge ? 2 : 1;
+        this.land[i] = 1;
+        this.coll[i] = edge ? 1 : 0;
+      }
+    }
+    // cristal de saída (chegada)
+    this.bld('d/crystal', (r.x + 3) * T - 6, (r.y + 3) * T - 20, 12, 20, 'dcrystal', { den: id });
+    // tochas nos cantos
+    for (const [fx, fy] of [[7, 5], [7, H - 5], [W - 8, 5], [W - 8, H - 5]]) {
+      const px = (r.x + fx) * T, py = (r.y + fy) * T;
+      this.props.push({ key: 'd/torch', x: px, y: py, solid: 0, chunk: this.chunkOf(px, py), flip: false });
+    }
+    // pilares
+    for (const [pxf, pyf] of [[11, 9], [11, H - 9], [W - 12, 9], [W - 12, H - 9]]) {
+      const bx = (r.x + pxf) * T, by = (r.y + pyf) * T;
+      this.props.push({ key: 'd/pilar', x: bx, y: by, solid: 1, chunk: this.chunkOf(bx, by), flip: false });
+      this.fillRectColl(bx - 6, by - 6, 12, 6);
+    }
+    // baú no fundo
+    const bx = (r.x + W - 5) * T, by = (r.y + H - 5) * T;
+    this.bld('b/chest', bx - 12, by - 14, 24, 14, 'dbau', { den: id, open: false, lvl: d.loot });
+    this.denRects[id] = { ox: r.x, oy: r.y, W, H };
+  }
+
   private isLandTile(tx: number, ty: number, margin = 0): boolean {
     if (tx < margin || ty < margin || tx > NW - 1 - margin || ty > NH - 1 - margin) return false;
     if (!this.land[tx + ty * NW]) return false;
@@ -552,6 +629,33 @@ export class World2D {
         const i = tx + ty * NW;
         const wx = tx * T, wy = ty * T;
         const px = lx * T, py = ly * T;
+        const df = this.denFloor[i];
+        if (df) {
+          if (df === 2) { // parede
+            g.fillStyle = '#1c2228'; g.fillRect(px, py, T, T);
+            const below = ty + 1 < NH ? this.denFloor[i + NW] : 0;
+            if (below !== 2) { g.fillStyle = '#39454e'; g.fillRect(px, py, T, 3); }
+            else if ((tx * 7 + ty * 13) % 5 === 0) { g.fillStyle = '#232c33'; g.fillRect(px + 3, py + 7, T - 6, T - 10); }
+          } else { // piso de pedra
+            const v = (tx * 13 + ty * 7) % 6;
+            g.fillStyle = ['#31383e', '#2d343a', '#353c42', '#2f363c', '#333a40', '#2c3339'][v];
+            g.fillRect(px, py, T, T);
+            if ((tx * 5 + ty * 3) % 7 === 0) { g.fillStyle = '#262d33'; g.fillRect(px + ((tx * 3) % 10), py + ((ty * 5) % 10), 3, 2); }
+            if ((tx * 11 + ty * 17) % 11 === 0) { g.fillStyle = '#3d464d'; g.fillRect(px + ((tx * 7) % 12), py + ((ty * 3) % 12), 2, 1); }
+            const nb2 = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+            for (const [dx, dy] of nb2) {
+              const j = tx + dx + (ty + dy) * NW;
+              if (this.denFloor[j] === 2) {
+                g.fillStyle = '#22282e';
+                if (dx === 1) g.fillRect(px + T - 2, py, 2, T);
+                if (dx === -1) g.fillRect(px, py, 2, T);
+                if (dy === 1) g.fillRect(px, py + T - 2, T, 2);
+                if (dy === -1) g.fillRect(px, py, T, 2);
+              }
+            }
+          }
+          continue;
+        }
         if (!this.land[i]) {
           // água
           g.fillStyle = PAL.water1; g.fillRect(px, py, T, T);
