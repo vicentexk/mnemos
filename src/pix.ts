@@ -584,10 +584,11 @@ export function buildAllSprites(races: RaceLike[]) {
   boatSprite('b/boat'); bannerSprite('b/banner'); wreckSprite('b/wreck'); cargaSprite('b/carga');
   // itens
   coinSprite('i/coin'); meatSprite('i/meat');
-  // aldeoes + fauna + inimigos especiais
+  // aldeoes + fauna + inimigos especiais + covis
   buildVillagerSprites();
   buildAnimalSprites();
   buildEnemyKindSprites();
+  buildDenSprites();
 }
 
 function selaRonceiro() {
@@ -750,6 +751,71 @@ export function buildEnemyKindSprites() {
   outline('e/m0'); outline('e/m1');
   fromMap(H0, M_UIV, 'e/h0'); fromMap(H1, M_UIV, 'e/h1');
   outline('e/h0'); outline('e/h1');
+}
+
+// props de covil: totem-caveira, ossos, A PORTA
+export function buildDenSprites() {
+  const skull = () => {
+    const c = cv(16, 18); const g = ctx2(c);
+    const W = P(g, '#e8e0d0'), D = P(g, '#b8b0a0'), O = P(g, OUT), H = P(g, '#4a3624');
+    // chifres
+    H(1, 0, 2, 2); H(13, 0, 2, 2); H(0, 2, 2, 3); H(14, 2, 2, 3);
+    // cranio
+    W(3, 3, 10, 8); W(4, 11, 8, 2);
+    D(3, 9, 10, 2);
+    O(5, 6, 3, 2); O(9, 6, 3, 2); // olhos
+    O(6, 12, 1, 1); O(8, 12, 1, 1); O(10, 12, 1, 1); // dentes
+    // pica
+    O(4, 14, 8, 3); P(g, '#2a2a30')(5, 15, 6, 2);
+    SPR['b/skull'] = c;
+    outline('b/skull');
+  };
+  skull();
+  // ossos espalhados
+  const bones = () => {
+    const c = cv(12, 5); const g = ctx2(c);
+    const W = P(g, '#d8d0c0');
+    W(1, 2, 7, 1); W(0, 1, 2, 1); W(0, 3, 2, 1); W(8, 1, 2, 1); W(8, 3, 2, 1);
+    W(10, 0, 1, 2); W(11, 3, 1, 2);
+    SPR['b/bones'] = c;
+  };
+  bones();
+  // A PORTA do Umbigo
+  const porta = () => {
+    const c = cv(34, 46); const g = ctx2(c);
+    const FR = P(g, '#2e2838'), FR2 = P(g, '#3e3650'), IN = P(g, '#0c0a14');
+    const GL = P(g, '#b06ae8'), GL2 = P(g, '#8a4ac0');
+    // marco
+    FR(2, 8, 30, 38); FR2(4, 6, 26, 4); FR2(2, 4, 30, 4);
+    // vão
+    IN(6, 12, 22, 34);
+    // arco decorativo
+    GL(2, 4, 4, 2); GL(28, 4, 4, 2); GL(15, 0, 4, 4);
+    GL2(6, 8, 2, 2); GL2(26, 8, 2, 2);
+    // runas no vão
+    GL(10, 18, 2, 2); GL(16, 24, 2, 2); GL(22, 18, 2, 2);
+    GL2(13, 32, 2, 2); GL2(19, 38, 2, 2);
+    // degraus
+    P(g, '#52525a')(0, 42, 34, 4); P(g, '#454550')(2, 40, 30, 2);
+    SPR['b/porta'] = c;
+    outline('b/porta');
+  };
+  porta();
+}
+
+// tint de chefe: cópia do sprite do kind com cor por cima
+export function buildBossTint(kind: string, cor: string, zone: string) {
+  const src = SPR[`e/${kind}0`];
+  if (!src) return;
+  const c = cv(src.width, src.height); const g = ctx2(c);
+  g.drawImage(src, 0, 0);
+  g.globalCompositeOperation = 'source-atop';
+  g.globalAlpha = 0.42;
+  g.fillStyle = cor;
+  g.fillRect(0, 0, c.width, c.height);
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'source-over';
+  SPR[`boss/${zone}`] = c;
 }
 
 // atlas de armas do usuário (famílias × 10 tiers)

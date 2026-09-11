@@ -99,3 +99,15 @@ Feedback do playtest 1: chão bugado, sprites feios (anatomia), HUD não-pixel, 
 - **6 MONTARIAS + DOMADOR ABERO** (retrato do sábio): cada uma com chave própria — Ronceiro (missão), Bufelo (25 pesados), Javalina (4 carnes no curral), Corsária (chegar de barco), Roc-Clume (descobrir os Picos), Mirage (60s sobrevivendo no Umbigo). Menu do Domador mostra progresso ao vivo, permite domar/trocar montaria ativa; curral com bichos visíveis; variantes recoloridas por espécie (selada/domada).
 - **COMBATE 2.0**: rolamento menor/distância curta **com cooldown 0,9s** (0,55 com perícia); **7 tipos de inimigo** com peculiaridade — Farejador (bando acelera), Batedor (manso→FURIOSO ao apanhar), Arqueiro (mantém distância e atira), Bruto (telegraph longo, golpe em área), Gundu (investida em linha, cansa depois), Miroo (cura aliados, foge), Uivo (uivo buffa o bando). Elites 1,5× em camps Nv.4+. Composição por nível de zona.
 - Save → **v2** (skills, montarias, rastreadores de doma). tsc limpo; build 120 kB (43 gzip). QA visual: inimigos/montarias inspecionados em PNG.
+
+## Sessão 6 — M3: Chefes de Zona & O Porteiro
+**Meta:** fechar o arco do sandbox — um chefe por zona + fim de jogo com tela de vitória.
+
+- **10 chefes** (defs `BOSSES`): Fareja-Mor (Berço), Dente-Velho (Kurnis), Presa-Corja (Kurnis2), Mãe dos Musgos (Selva), Marejante (Costa), Vidreiro (Deserto), Lamaçal Vivo (Banhadol), Atheros o Pico (Picos), Coração de Obsidiana (Obsidiana) e **O PORTEIRO** (Umbigo, ×2.8 — o maior sprite do jogo).
+- **Covis** no mundo: totem-caveira + ossos espalhados (`b/skull`, `b/bones`), gerados longe de vila/acampamentos; ♛ no minimapa e mapa grande (dourado = vivo, cinza = morto).
+- **Chefe** = sprite do kind com tint da zona (source-atop), aura pulsante, coroa ♛ flutuante, barra própria no topo, HP×6 + dano alto, slam em área com onda de choque visível, aggro/leash maiores e **enrage <35%** (×1.35 velocidade, windup ×0.7).
+- **Recompensas**: +1★ de perícia garantido, cobres, minério da zona+2, carnes e **equipamento garantido acima do atual** (arma/peitoral/arreio).
+- **A PORTA do Umbigo**: construction perto do centro da zona final; interagir sem matar o Porteiro → diálogo de lore ("Ela não trava. Ela apenas espera."); com o Porteiro morto → atravessar.
+- **Tela de vitória**: overlay épico-solar com stats da jornada (nível, chefes X/10, tempo, cobres) + citação da Grão-Nau; "continuar explorando" mantém o sandbox.
+- Persistência: `bossesKilled` + `won` no save v2; quest "OS 10 TRONOS" guia o fim de jogo.
+- QA visual `docs/qa-covis.png`; bundle 129.9 kB (46.5 gz); tsc limpo.

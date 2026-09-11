@@ -25,6 +25,10 @@ export class UI2D {
   private zoneTitleEl!: HTMLElement;
   private lockNote!: HTMLElement;
   private mapModal!: HTMLElement;
+  private bossBarEl!: HTMLElement;
+  private bossNameEl!: HTMLElement;
+  private bossFillEl!: HTMLElement;
+  victoryEl!: HTMLElement;
 
   constructor(rootId: string, game: any) {
     this.game = game;
@@ -34,6 +38,52 @@ export class UI2D {
     this.buildDialog();
     this.buildDeath();
     this.buildMapModal();
+    this.buildBossBar();
+    this.buildVictory();
+  }
+
+  private buildBossBar() {
+    this.bossBarEl = el('div'); this.bossBarEl.id = 'bossbar';
+    this.bossBarEl.style.display = 'none';
+    this.bossBarEl.innerHTML = `<div class="bname ol" id="bname"></div><div class="bwrap"><div class="bfill" id="bfill"></div></div>`;
+    this.hud.appendChild(this.bossBarEl);
+    this.bossNameEl = this.bossBarEl.querySelector('#bname')!;
+    this.bossFillEl = this.bossBarEl.querySelector('#bfill')!;
+  }
+
+  bossBar(nome: string | null, cor = '#ff4040', pct = 1) {
+    if (!nome) { this.bossBarEl.style.display = 'none'; return; }
+    this.bossBarEl.style.display = 'block';
+    this.bossNameEl.textContent = `♛ ${nome}`;
+    this.bossFillEl.style.width = `${Math.max(0, pct) * 100}%`;
+    this.bossFillEl.style.background = `linear-gradient(${cor}, ${cor})`;
+  }
+
+  private buildVictory() {
+    this.victoryEl = el('div'); this.victoryEl.id = 'victory';
+    this.victoryEl.classList.add('clickable');
+    this.root.appendChild(this.victoryEl);
+  }
+
+  showVictory(s: { nome: string; nivel: number; chefes: string; tempo: string; cobres: number }, chefe: string) {
+    this.victoryEl.innerHTML = `
+      <div class="vcard">
+        <h1>♛ VOCÊ ATRAVESSOU</h1>
+        <p class="vs"><b>${chefe}</b> tombou. A porta não tinha trancas — tinha dentes.</p>
+        <p class="vl">"E a gente achou o que a Grão-Nau procurava quando afundou:<br>não era terra nova. Era <b>voltar com algo</b>."</p>
+        <div class="vstats">
+          <div><span>LEONIS</span><b>${s.nome}</b></div>
+          <div><span>NÍVEL</span><b>${s.nivel}</b></div>
+          <div><span>CHEFES</span><b>${s.chefes}</b></div>
+          <div><span>TEMPO</span><b>${s.tempo}</b></div>
+          <div><span>COBRES</span><b>◉ ${s.cobres}</b></div>
+        </div>
+        <button class="btn" id="v-cont">CONTINUAR EXPLORANDO O BRAVO</button>
+      </div>`;
+    this.victoryEl.style.display = 'flex';
+    this.victoryEl.querySelector('#v-cont')!.addEventListener('click', () => {
+      this.victoryEl.style.display = 'none';
+    });
   }
 
   // ================= TÍTULO =================
@@ -302,6 +352,16 @@ export class UI2D {
     drawIco(g.wreck.x * 16, g.wreck.y * 16, '✖');
     drawIco(g.ronP.x * 16, g.ronP.y * 16, '🐎');
     for (const cp of g.world.camps) drawIco(cp.x, cp.y, '☠');
+    for (const d of g.world.bossDens) {
+      const alive = !g.bossesKilled.has(d.zone);
+      const dx = (d.x / 16 - px) / view * S + S / 2;
+      const dy = (d.y / 16 - py) / view * S + S / 2;
+      if (dx < -6 || dx > S + 6 || dy < -6 || dy > S + 6) continue;
+      c.lineWidth = 3; c.strokeStyle = '#000';
+      c.strokeText('♛', dx, dy + 4);
+      c.fillStyle = alive ? '#ffd23a' : '#7a8a94';
+      c.fillText('♛', dx, dy + 4);
+    }
     // player
     c.save();
     c.translate(S / 2, S / 2);
@@ -449,6 +509,12 @@ export class UI2D {
     dot(g.wreck.x, g.wreck.y, '✖');
     dot(g.ronP.x, g.ronP.y, '🐎');
     for (const c of g.world.camps) dot(c.x / 16, c.y / 16, '☠');
+    for (const d of g.world.bossDens) {
+      bg.lineWidth = 3; bg.strokeStyle = '#000';
+      bg.strokeText('♛', d.x / 16 - 5, d.y / 16 + 5);
+      bg.fillStyle = g.bossesKilled.has(d.zone) ? '#7a8a94' : '#ffd23a';
+      bg.fillText('♛', d.x / 16 - 5, d.y / 16 + 5);
+    }
     // player
     const px = g.player.pos.x / 16, py = g.player.pos.y / 16;
     bg.fillStyle = '#ff4a3a';

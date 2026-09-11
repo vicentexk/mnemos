@@ -21,7 +21,7 @@ export interface HerbNode { id: string; x: number; y: number; kind: string; cd: 
 
 export interface Building {
   key: string; x: number; y: number; w: number; h: number; solid: boolean;
-  tipo: 'casa' | 'forja' | 'estabulo' | 'brais' | 'fogueira' | 'torre' | 'tenda' | 'pali' | 'bau' | 'wreck' | 'carga';
+  tipo: 'casa' | 'forja' | 'estabulo' | 'brais' | 'fogueira' | 'torre' | 'tenda' | 'pali' | 'bau' | 'wreck' | 'carga' | 'porta';
   dados?: any;
 }
 
@@ -35,6 +35,7 @@ export class World2D {
   buildings: Building[] = [];
   props: Prop[] = [];
   cityHouses = 0;
+  bossDens: { zone: string; x: number; y: number }[] = [];
   npcSpawns: { x: number; y: number; face: number; nome: string; linhas: string[] }[] = [];
   animals: { x: number; y: number; kind: string }[] = [];
   propsByChunk = new Map<number, Prop[]>();
@@ -47,6 +48,7 @@ export class World2D {
     this.genPOIs();
     this.genProps();
     this.genLife();
+    this.genBossDens();
     this.buildMinimap();
   }
 
@@ -403,6 +405,49 @@ export class World2D {
       if (this.isLandTile(x, y, 2) && !this.coll[x + y * NW]) return { x, y };
     }
     return null;
+  }
+
+  // ---------------- covis de chefe (um por zona) + Porta final ----------------
+  private genBossDens() {
+    for (const z of ZONES) {
+      for (let att = 0; att < 80; att++) {
+        const p = this.randLandIn(z, 12);
+        if (!p) continue;
+        const minVila = z.id === 'berco' ? 26 : 36;
+        if (dist2d(p.x, p.y, POI2.vila.x, POI2.vila.y) < minVila) continue;
+        if (dist2d(p.x, p.y, POI2.wreck.x, POI2.wreck.y) < 22) continue;
+        if (dist2d(p.x, p.y, POI2.ronceiro.x, POI2.ronceiro.y) < 18) continue;
+        let nearCamp = false;
+        for (const c of this.camps) if (dist2d(p.x * T, p.y * T, c.x, c.y) < 110) { nearCamp = true; break; }
+        let nearDen = false;
+        for (const d of this.bossDens) if (dist2d(p.x, p.y, d.x / T, d.y / T) < 60) nearDen = true;
+        if (nearCamp || nearDen) continue;
+        const wx = p.x * T, wy = p.y * T;
+        // totem-caveira do covil + ossos
+        this.props.push({ key: 'b/skull', x: wx, y: wy, solid: 1, chunk: this.chunkOf(wx, wy), flip: this.rng() > 0.5 });
+        this.fillRectColl(wx - 8, wy - 8, 16, 10);
+        for (let k = 0; k < 4; k++) {
+          const a = this.rng() * Math.PI * 2, r = 14 + this.rng() * 18;
+          const bx = Math.round(wx / T + Math.cos(a) * r / T * 2), by = Math.round(wy / T + Math.sin(a) * r / T * 2);
+          if (this.isLandTile(bx, by, 1) && !this.coll[bx + by * NW]) {
+            this.props.push({ key: 'b/bones', x: bx * T, y: by * T, solid: 0, chunk: this.chunkOf(bx * T, by * T), flip: this.rng() > 0.5 });
+          }
+        }
+        this.bossDens.push({ zone: z.id, x: wx, y: wy });
+        break;
+      }
+    }
+    // A PORTA do Umbigo (perto do centro da zona final)
+    const uz = ZONES.find(z => z.id === 'umbigo')!;
+    const pd = this.randLandNear(uz.cx + 8, uz.cy + 6, 10);
+    if (pd) {
+      this.bld('b/porta', pd.x * T - 17, pd.y * T - 46, 34, 46, 'porta');
+      // guardiões visuais (os monstros da zona já cuidam do resto)
+      for (const [ox, oy] of [[-22, 2], [22, 2]]) {
+        this.props.push({ key: 'b/skull', x: pd.x * T + ox, y: pd.y * T + oy, solid: 1, chunk: this.chunkOf(pd.x * T + ox, pd.y * T + oy), flip: ox > 0 });
+        this.fillRectColl(pd.x * T + ox - 8, pd.y * T + oy - 8, 16, 10);
+      }
+    }
   }
 
   private isLandTile(tx: number, ty: number, margin = 0): boolean {

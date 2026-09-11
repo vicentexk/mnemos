@@ -243,3 +243,23 @@ export const SKILLS: SkillDef[] = [
   { id: 'vida3',  nome: 'Robustez',       desc: '+20 de Vida máxima',                  ramo: 'VIGOR', req: 'sta1' },
   { id: 'carne1', nome: 'Bom Talho',      desc: 'Carne cura 50 em vez de 30',          ramo: 'VIGOR', req: 'vigor1' }
 ];
+
+// ============================================================
+// CHEFES DE ZONA (M3) + O PORTEIRO (fim de jogo)
+// ============================================================
+export interface BossDef {
+  zone: string; nome: string; kind: string; lvl: number;
+  scale: number; cor: string; titulo: string; final?: boolean;
+}
+export const BOSSES: BossDef[] = [
+  { zone: 'berco',     nome: 'Fareja-Mor',           kind: 's', lvl: 1,  scale: 1.9, cor: '#e0d040', titulo: 'O primeiro dente' },
+  { zone: 'kurnis',    nome: 'Dente-Velho',          kind: 'f', lvl: 1,  scale: 2.0, cor: '#e07040', titulo: 'Manso só até apanhar' },
+  { zone: 'kurnis2',   nome: 'Presa-Corja',          kind: 'a', lvl: 2,  scale: 2.0, cor: '#60c0e0', titulo: 'Flecha que não erra duas vezes' },
+  { zone: 'selva',     nome: 'Mãe dos Musgos',       kind: 'T', lvl: 3,  scale: 2.1, cor: '#60e070', titulo: 'A selva tem dentes' },
+  { zone: 'costa',     nome: 'Marejante',            kind: 'g', lvl: 4,  scale: 2.1, cor: '#4090e0', titulo: 'Engole navio e navio' },
+  { zone: 'deserto',   nome: 'Vidreiro',             kind: 'h', lvl: 5,  scale: 2.0, cor: '#c0e0ff', titulo: 'Uivo que corta vidro' },
+  { zone: 'banhadol',  nome: 'Lamaçal Vivo',         kind: 'T', lvl: 6,  scale: 2.3, cor: '#8a9a40', titulo: 'O pântano anda' },
+  { zone: 'picos',     nome: 'Atheros, o Pico',      kind: 'T', lvl: 8,  scale: 2.5, cor: '#e8e8f0', titulo: 'Atherosaurus, autêntico' },
+  { zone: 'obsidiana', nome: 'Coração de Obsidiana', kind: 'T', lvl: 10, scale: 2.5, cor: '#c060e0', titulo: 'Bate uma vez por século' },
+  { zone: 'umbigo',    nome: 'O PORTEIRO',           kind: 'T', lvl: 12, scale: 2.8, cor: '#ff4040', titulo: 'Ninguém atravessa sem pedir licença', final: true }
+];

@@ -4,7 +4,8 @@
 // ============================================================
 
 import * as defs from './data/defs';
-import { RACES, WEAPONS, RaceDef, WeaponDef, ZONES, ORES, POI2, MOUNTS, SKILLS, WEAPON_FAM, MountDef } from './data/defs';
+import { RACES, WEAPONS, RaceDef, WeaponDef, ZONES, ORES, POI2, MOUNTS, SKILLS, WEAPON_FAM, MountDef, BOSSES } from './data/defs';
+import { buildBossTint } from './pix';
 import { Input, AudioSys, saveGame, loadGame, hasSave, clearSave, clamp, dist2d, mulberry32 } from './core';
 import { World2D, COLL } from './world2d';
 import { SPR, buildAllSprites, buildTitlePanorama, buildOreSprite, buildHerbSprite, buildWeaponSprites, buildMountVariants, loadWeaponAtlas, PAL } from './pix';
@@ -58,7 +59,7 @@ class Player2D {
 }
 
 interface Enemy2D {
-  id: number; kind: string; elite: boolean; lvl: number; nome: string;
+  id: number; kind: string; elite: boolean; boss: boolean; bkey: string; scale: number; lvl: number; nome: string;
   pos: { x: number; y: number }; home: { x: number; y: number };
   hp: number; maxHp: number;
   state: 'idle' | 'chase' | 'windup' | 'hit' | 'return' | 'charge';
@@ -140,6 +141,9 @@ class Game2D {
 
   q1 = 0; q2 = 0;
   runStats = { heavy: 0, fedJav: 0, boated: false, visitedPicos: false, umbigoT: 0 };
+  bossesKilled: Set<string> = new Set<string>();
+  won = false;
+  rings: { x: number; y: number; t: number }[] = [];
   learned: Set<string> = new Set<string>();
   skillPts = 0;
   activeMountId = 'ronceiro';
@@ -427,6 +431,7 @@ class Game2D {
     this.mountStates = {}; this.activeMountId = 'ronceiro';
     this.learned = new Set<string>(); this.skillPts = 0;
     this.runStats = { heavy: 0, fedJav: 0, boated: false, visitedPicos: false, umbigoT: 0 };
+    this.bossesKilled = new Set<string>(); this.won = false;
     this.initMountStates();
     this.mount.kind = 'ronceiro'; this.mount.def = MOUNTS[0];
     this.mount.maxHp = MOUNTS[0].hp; this.mount.hp = MOUNTS[0].hp;
@@ -455,13 +460,14 @@ class Game2D {
       this.addEnemy('s', 2, POI2.ronceiro.x * T - 24, POI2.ronceiro.y * T, null, true);
       this.addEnemy('f', 2, POI2.ronceiro.x * T + 24, POI2.ronceiro.y * T, null, true);
     }
+    this.spawnBosses();
   }
 
   private addEnemy(kind: string, lvl: number, x: number, y: number, camp: string | null, guard: boolean, elite = false): Enemy2D {
     const st = KINDS[kind];
     const mult = (1 + (lvl - 1) * 0.35) * (elite ? 1.5 : 1);
     const e: Enemy2D = {
-      id: this.eid++, kind, elite, lvl, nome: st.nome,
+      id: this.eid++, kind, elite, boss: false, bkey: '', scale: 1, lvl, nome: st.nome,
       pos: { x, y }, home: { x, y },
       hp: Math.round(st.hp * mult), maxHp: Math.round(st.hp * mult),
       state: 'idle', stT: 0, animT: 0, frame: 0,
@@ -668,6 +674,22 @@ class Game2D {
     this.updateProjs(dt);
     this.updatePickups(dt);
     this.updateCommon(dt);
+    this.updateBossBar();
+  }
+
+  private updateBossBar() {
+    let target: Enemy2D | null = null;
+    let bd = null;
+    for (const e of this.enemies) {
+      if (!e.boss || e.dead) continue;
+      if (dist2d(e.pos.x, e.pos.y, this.player.pos.x, this.player.pos.y) < 160) {
+        target = e;
+        bd = BOSSES.find(b => b.nome === e.nome) || null;
+        break;
+      }
+    }
+    if (target && bd) this.ui.bossBar(target.nome, bd.cor, target.hp / target.maxHp);
+    else this.ui.bossBar(null);
   }
 
   private initMountStates() {
@@ -752,6 +774,35 @@ class Game2D {
     if (s === 'domado' && this.activeMountId !== d.id) opts.push({ label: `MONTAR ${d.nome.toUpperCase()}`, cb: () => this.activateMount(d.id) });
     opts.push({ label: 'VOLTAR', cb: () => this.keeperDialog() });
     this.ui.dialogFace('DOMADOR ABERO', 2, `<b>${d.nome}</b>: ${d.como}<br><i>${d.dica}</i><br><span style="color:#8fe08f">${prog[d.id] || ''}</span>`, opts);
+  }
+
+  private addBoss(zone: string, lvl: number, x: number, y: number): Enemy2D {
+    const bd = BOSSES.find(b => b.zone === zone)!;
+    const st = KINDS[bd.kind];
+    const mult = (1 + (lvl - 1) * 0.35) * 6;
+    const e: Enemy2D = {
+      id: this.eid++, kind: bd.kind, elite: false, boss: true, bkey: `boss/${zone}`,
+      scale: bd.scale, lvl, nome: bd.nome,
+      pos: { x, y }, home: { x, y },
+      hp: Math.round(st.hp * mult), maxHp: Math.round(st.hp * mult),
+      state: 'idle', stT: 0, animT: 0, frame: 0,
+      pacify: 0, dead: false, deadT: 0, fade: 0,
+      dmg: Math.round(st.dmg * (1 + (lvl - 1) * 0.3) * 1.5), speed: st.speed * 0.9,
+      camp: null, guard: false,
+      mad: false, buff: 0, shootCd: 0, chargeCd: 0,
+      chargeT: 0, chargeDx: 0, chargeDy: 0, tired: 0, howlCd: 0
+    };
+    buildBossTint(bd.kind, bd.cor, zone);
+    this.enemies.push(e);
+    return e;
+  }
+
+  private spawnBosses() {
+    for (const bd of BOSSES) {
+      if (this.bossesKilled.has(bd.zone)) continue;
+      const den = this.world.bossDens.find(d => d.zone === bd.zone);
+      if (den) this.addBoss(bd.zone, bd.lvl, den.x, den.y - 10);
+    }
   }
 
   private spawnNpcs() {
@@ -878,8 +929,35 @@ class Game2D {
   }
 
   private onEnemyDead(e: Enemy2D) {
-    const xp = 5 + e.lvl * 2;
+    const xp = e.boss ? 40 + e.lvl * 8 : 5 + e.lvl * 2;
     this.gainLeguas(xp);
+    if (e.boss) {
+      const bd = BOSSES.find(b => b.nome === e.nome)!;
+      this.bossesKilled.add(bd.zone);
+      this.skillPts++;
+      this.audio.sfx('tame');
+      this.ui.zoneTitle(`${bd.nome.toUpperCase()} DERROTADO`, bd.final ? '…a porta está aberta.' : '+1 PONTO DE PERÍCIA · zona limpa', '#8fe08f');
+      this.ui.feed(`CHEFE DERROTADO: ${bd.nome} (+1★)`, '#8fe08f');
+      for (let k = 0; k < 3; k++) this.dropPickup('coin', 15 + e.lvl * 4, e.pos.x + (k - 1) * 8, e.pos.y);
+      const z = ZONES[this.world.zoneIndexAt(e.pos.x, e.pos.y)];
+      this.dropPickup('ore:' + defs.oreDaZona(z.lvl + 2), 2, e.pos.x + 12, e.pos.y + 6);
+      this.dropPickup('meat', 2, e.pos.x - 12, e.pos.y + 6);
+      // equipamento garantido acima do atual
+      const loot = rollLoot(Math.max(1, z.lvl + 2), 'x', this.rng);
+      const p = this.player;
+      for (const gg of loot) {
+        const cur = gg.slot === 'arma' ? p.equip.armaNivel : gg.slot === 'peitoral' ? p.equip.peitoralNivel : p.equip.arreioNivel;
+        if (gg.nivel > cur) {
+          if (gg.slot === 'arma') { p.equip.armaNivel = gg.nivel; p.equip.multArma = gg.mult; }
+          else if (gg.slot === 'peitoral') { p.equip.peitoralNivel = gg.nivel; p.equip.multPeitoral = gg.mult; }
+          else p.equip.arreioNivel = gg.nivel;
+          this.ui.feed(`SPOILA DO CHEFE: ${gg.slot.toUpperCase()} NV.${gg.nivel}`, '#8fe08f');
+        }
+      }
+      if (bd.final) this.victory();
+      this.save(false);
+      return;
+    }
     const coins = 2 + Math.floor(this.rng() * 3) + e.lvl;
     this.dropPickup('coin', coins, e.pos.x, e.pos.y);
     if (this.rng() < 0.3) {
@@ -920,9 +998,9 @@ class Game2D {
       if (e.tired > 0) e.tired -= dt;
       if (e.pacify > 0) { e.pacify -= dt; continue; }
       const d = dist2d(p.pos.x, p.pos.y, e.pos.x, e.pos.y);
-      const aggro = this.player.mounted ? 90 : 74;
+      const aggro = e.boss ? 110 : this.player.mounted ? 90 : 74;
       const spdOf = (k: Enemy2D) => {
-        let s = k.speed;
+        let s = k.speed * (k.boss && k.hp < k.maxHp * 0.35 ? 1.35 : 1);
         if (k.kind === 's') {
           let near = 0;
           for (const o of this.enemies) if (!o.dead && o !== k && o.kind === 's' && dist2d(o.pos.x, o.pos.y, k.pos.x, k.pos.y) < 70) near++;
@@ -932,7 +1010,9 @@ class Game2D {
         if (k.buff > 0) s *= 1.35;
         return s;
       };
+      const enraged = e.boss && e.hp < e.maxHp * 0.35;
       const windupOf = (k: string) => (k === 'T' ? 0.9 : k === 'g' ? 0.6 : 0.5);
+      const spdMul = enraged ? 1.35 : 1;
       switch (e.state) {
         case 'idle': {
           if (e.stT <= 0) {
@@ -950,7 +1030,7 @@ class Game2D {
           break;
         }
         case 'chase': {
-          if (p.dead || (d > aggro * 2.1 && !e.mad)) { e.state = 'return'; break; }
+          if (p.dead || (d > aggro * (e.boss ? 3.5 : 2.1) && !e.mad)) { e.state = 'return'; break; }
           if (e.kind === 'a') {
             if (d < 26) {
               const dx = (e.pos.x - p.pos.x) / d, dy = (e.pos.y - p.pos.y) / d;
@@ -989,8 +1069,8 @@ class Game2D {
           if (e.kind === 'g' && e.chargeCd <= 0 && d < 70 && d > 16 && e.tired <= 0) {
             e.state = 'windup'; e.stT = windupOf('g'); break;
           }
-          const reach = e.kind === 'T' ? 16 : 14;
-          if (d < reach) { e.state = 'windup'; e.stT = windupOf(e.kind); }
+          const reach = e.boss ? 24 : e.kind === 'T' ? 16 : 14;
+          if (d < reach) { e.state = 'windup'; e.stT = enraged ? windupOf(e.kind) * 0.7 : windupOf(e.kind); }
           else {
             const dx = (p.pos.x - e.pos.x) / d, dy = (p.pos.y - e.pos.y) / d;
             this.world.moveEntity(e.pos, dx * spdOf(e) * dt, dy * spdOf(e) * dt, 3);
@@ -1007,10 +1087,11 @@ class Game2D {
               break;
             }
             e.state = 'hit'; e.stT = 0.2;
-            const reach = e.kind === 'T' ? 26 : 18;
+            const reach = e.boss ? 30 : e.kind === 'T' ? 26 : 18;
+            if (e.boss) this.rings.push({ x: e.pos.x, y: e.pos.y, t: 0 }); // slam em área
             if (d < reach && !p.dead) {
               const m = dmgMult(this.player.ne(), e.lvl);
-              const dmg = Math.max(1, Math.round(e.dmg * m.def));
+              const dmg = Math.max(1, Math.round(e.dmg * (e.boss ? 1.3 : 1) * m.def));
               this.onPlayerDamage(dmg);
             }
           }
@@ -1166,6 +1247,8 @@ class Game2D {
   }
 
   private updateCommon(dt: number) {
+    for (const r of this.rings) r.t += dt;
+    this.rings = this.rings.filter(r => r.t < 0.45);
     this.updateNpcs(dt);
     for (const h of this.world.herbs) if (h.cd > 0 && this.time > h.cd + 45) h.cd = 0;
     for (const o of this.world.ores) if (o.cd > 0 && this.time > o.cd + 60) { o.cd = 0; o.uses = 3; }
@@ -1401,6 +1484,17 @@ class Game2D {
     list.sort((a, b) => a.y - b.y);
     for (const it of list) it.fn();
 
+    // ondas de choque dos chefes
+    for (const r of this.rings) {
+      const a = Math.max(0, 1 - r.t / 0.45);
+      g.strokeStyle = `rgba(255,120,80,${a})`;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(Math.round(r.x - camX), Math.round(r.y - camY), Math.round(8 + r.t * 140), 0, Math.PI * 2);
+      g.stroke();
+    }
+    g.lineWidth = 1;
+
     // mira
     if (this.state === 'play' && !this.uiOpen()) {
       g.fillStyle = 'rgba(255,255,255,0.7)';
@@ -1460,13 +1554,13 @@ class Game2D {
 
   private drawEnemy(g: CanvasRenderingContext2D, e: Enemy2D, wx: number, wy: number, camX: number, camY: number) {
     if (e.dead && e.fade <= 0) return;
-    const key = `e/${e.kind}${e.frame}`;
+    const key = e.boss && SPR[e.bkey] ? e.bkey : `e/${e.kind}${e.frame}`;
     const spr = SPR[key];
     if (!spr) return;
     const p = this.player;
     const flip = p.pos.x < wx;
     const s2 = flip ? flipCache(key) : spr;
-    const sc = e.elite ? 1.18 : 1;
+    const sc = e.scale * (e.elite ? 1.18 : 1);
     const dw = Math.round(s2.width * sc), dh = Math.round(s2.height * sc);
     const sx = Math.round(wx - dw / 2 - camX);
     const sy = Math.round(wy - dh - camY);
@@ -1479,7 +1573,22 @@ class Game2D {
       return;
     }
     const shake = e.state === 'windup' ? Math.round(Math.sin(this.time * 40) * 1) : 0;
+    // aura de chefe
+    if (e.boss) {
+      const pul = 0.25 + 0.12 * Math.sin(this.time * 5);
+      g.fillStyle = `rgba(255,80,50,${pul})`;
+      g.beginPath();
+      g.ellipse(sx + dw / 2, Math.round(wy - camY) - 1, dw * 0.62, 5, 0, 0, Math.PI * 2);
+      g.fill();
+    }
     g.drawImage(s2, sx + shake, sy, dw, dh);
+    if (e.boss) {
+      g.fillStyle = '#ffd23a';
+      g.font = 'bold 9px monospace';
+      g.textAlign = 'center';
+      g.fillText('♛', sx + dw / 2, sy - 5);
+      g.textAlign = 'left';
+    }
     if (e.buff > 0 && Math.floor(this.time * 4) % 2 === 0) {
       g.fillStyle = '#aee6ff';
       g.font = 'bold 7px monospace';
@@ -1584,6 +1693,10 @@ class Game2D {
     }
     for (const n of this.npcs) if (dist2d(px, py, n.x, n.y) < 16) return { tipo: 'npc', a: n };
     for (const b of this.penBeasts) if (dist2d(px, py, b.x, b.y) < 16) return { tipo: 'beast', a: b };
+    for (const b of this.world.buildings) {
+      if (b.tipo !== 'porta') continue;
+      if (dist2d(px, py, b.x + b.w / 2, b.y + b.h) < 40) return { tipo: 'porta' };
+    }
     if (dist2d(px, py, this.boat.x, this.boat.y) < 20 && !p.onBoat) return { tipo: 'boat' };
     for (const o of this.world.ores) if (o.cd <= 0 && dist2d(px, py, o.x, o.y) < 14) return { tipo: 'ore', a: o };
     for (const h of this.world.herbs) if (h.cd <= 0 && dist2d(px, py, h.x, h.y) < 12) return { tipo: 'herb', a: h };
@@ -1617,6 +1730,11 @@ class Game2D {
       case 'fogueira': this.ui.prompt('<b>E</b> FOGUEIRA — DESCANSAR & SALVAR'); break;
       case 'brais': this.ui.prompt('<b>E</b> FALAR COM BRAIS'); break;
       case 'npc': this.ui.prompt(`<b>E</b> FALAR COM ${n.a.nome.toUpperCase()}`); break;
+      case 'porta': {
+        const aberta = this.bossesKilled.has('umbigo');
+        this.ui.prompt(aberta ? '<b>E</b> ATRAVESSAR A PORTA' : '☠ O PORTEIRO te encara… derrote-o');
+        break;
+      }
       case 'beast': {
         const id = n.a.id as string;
         this.ui.prompt(id === 'javalina' ? '<b>E</b> DAR CARNE 🍖 À JAVALINA' : 'BUFELO — treine pesado contra feras (RMB)');
@@ -1649,6 +1767,15 @@ class Game2D {
         break;
       }
       case 'beast': this.interactBeast(n.a); break;
+      case 'porta': {
+        if (this.bossesKilled.has('umbigo')) {
+          if (!this.won) this.victory();
+          else this.ui.toast('A porta já é sua. O Bravo é infinito pra quem voltou.');
+        } else {
+          this.ui.dialogFace('A PORTA', 0, 'Ela não trava. Ela apenas <b>espera</b>. O PORTEIRO é a última pergunta — e ele já viu você chegando.', [{ label: 'FECHAR', cb: () => { } }]);
+        }
+        break;
+      }
       case 'carga': this.pickCarga(n.a); break;
       case 'bau': this.openChest(n.a); break;
       case 'boat':
@@ -1948,6 +2075,18 @@ class Game2D {
     }
   }
 
+  victory() {
+    const bd = BOSSES.find(b => b.final)!;
+    this.ui.showVictory({
+      nome: this.player.nome,
+      nivel: this.player.nivel,
+      chefes: `${this.bossesKilled.size}/${BOSSES.length}`,
+      tempo: `${Math.floor(this.time / 60)}min ${Math.floor(this.time % 60)}s`,
+      cobres: this.player.cobres
+    }, bd.nome);
+    this.audio.sfx('level');
+  }
+
   respawn() {
     const p = this.player;
     p.dead = false;
@@ -1968,7 +2107,7 @@ class Game2D {
     else if (this.q1 === 2) this.ui.quest('O COMBOIO ATACADO', 'Entregue a carga ao Brais.');
     else if (this.q2 === 1) this.ui.quest('O RONCEIRO FERIDO', 'Elimine os guardas da Corja perto da fera (a leste).');
     else if (this.q2 === 2) this.ui.quest('O RONCEIRO FERIDO', `Alimente o Ronceiro com ervas. (${this.mount.fed}/3)`);
-    else if (this.q2 >= 3) this.ui.quest('SANDBOX ABERTO', 'Explore! M = mapa. Zonas de Nv.1 a 12, todas abertas.');
+    else if (this.q2 >= 3) this.ui.quest('OS 10 TRONOS', 'Derrube os chefes de cada zona (♛ no mapa). O PORTEIRO espera no Umbigo.');
     else this.ui.quest('EXPLORE O BRAVO', 'Acampamentos, minérios, zonas. M = mapa.');
   }
 
@@ -1980,6 +2119,7 @@ class Game2D {
     const data = {
       v: 'm2d-2',
       skills: [...this.learned], pts: this.skillPts,
+      bossesKilled: [...this.bossesKilled], won: this.won,
       activeMountId: this.activeMountId,
       mountStates: this.mountStates,
       runStats: this.runStats,
@@ -2024,6 +2164,8 @@ class Game2D {
     // perícias + montarias + rastreadores
     this.learned = new Set<string>(d.skills || []);
     this.skillPts = d.pts || 0;
+    this.bossesKilled = new Set<string>(d.bossesKilled || []);
+    this.won = !!d.won;
     this.runStats = { heavy: 0, fedJav: 0, boated: false, visitedPicos: false, umbigoT: 0, ...(d.runStats || {}) };
     this.mountStates = {};
     this.initMountStates();
