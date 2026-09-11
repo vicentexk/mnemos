@@ -144,3 +144,9 @@ Feedback do playtest 1: chão bugado, sprites feios (anatomia), HUD não-pixel, 
 - **Integrado**: casa amarela da vila (21×), portal dourado 72×58, buraco/baú de porão novos, fauna viva (bodes/cavalos/patos/jumentos com 2 frames), goblin/golem/flamejante/ouriceiro nos porões.
 - Fix: Gruta da Maré sem entrada (âncora no oceano) → fallback de raio 18.
 - tsc limpo; build 141.15 kB (50.37 gz); release/MNEMOS-Alpha-0.5-win64.zip.
+
+## Sessão 11 — Regime GitHub-First (fix do rollback)
+- **Causa raiz dos rollbacks descoberta (pelo user!)**: zips de 85MB no workspace + blobs no .git estouravam o limite de snapshot do Arena (~128MB) → ambiente voltava no tempo e "engolia" a arte integrada.
+- **Regime novo**: workspace SEM zips (sparse-checkout exclui release/), fetch com --filter=blob:none (.git ~6MB), zips construídos em /tmp e injetados no git via hash-object/update-index, push único, slim ao fim de cada release.
+- **v0.5.1**: badge de versão visível no HUD (canto inf. esq., azul) + título da janela — o jogador confirma na hora se pegou a build nova.
+- SEM preview do Arena a partir de agora (pedido do user): o produto é o .exe no GitHub.

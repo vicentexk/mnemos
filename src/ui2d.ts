@@ -259,7 +259,7 @@ export class UI2D {
     const res = g.player.res;
     const resTxt = Object.entries(res).filter(([k, v]) => (v as number) > 0)
       .map(([k, v]) => `${ORES[k]?.ico || k}${v}`).join(' ');
-    this.lvlRow.innerHTML = `NV.${g.player.nivel} · FORJA ${g.player.ne().toFixed(1)} · <span class="gold">◉${g.player.cobres}</span> ⛓${res['ferro'] || 0} 🌿${res['erva'] || 0} ${g.player.cargas ? `· 📦${g.player.cargas}` : ''} ${resTxt ? `· ${resTxt}` : ''}`;
+    this.lvlRow.innerHTML = `<b style="color:#8fd0ff">v0.5.1</b> · NV.${g.player.nivel} · FORJA ${g.player.ne().toFixed(1)} · <span class="gold">◉${g.player.cobres}</span> ⛓${res['ferro'] || 0} 🌿${res['erva'] || 0} ${g.player.cargas ? `· 📦${g.player.cargas}` : ''} ${resTxt ? `· ${resTxt}` : ''}`;
     this.drawMinimap(g);
   }
 
