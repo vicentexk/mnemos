@@ -1,0 +1,17 @@
+# deps / build
+node_modules/
+dist/
+
+# ambientes
+.arena/
+.cache/
+.local/
+
+# sistema
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/
+.idea/
+*.swp
